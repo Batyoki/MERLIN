@@ -15,14 +15,7 @@ if 'QT_QPA_PLATFORM_PLUGIN_PATH' in os.environ:
 os.environ['QT_QPA_PLATFORM'] = 'xcb'
 
 # Import arm-bench modules
-from arm_bench.gui import (
-    launch_mode_selection, 
-    launch_monitoring_interface,
-    launch_arm_selection,
-    launch_operation_mode_selection,
-    launch_full_setup,
-    INTERBOTIX_ARMS
-)
+from arm_bench.gui import APP_NAME, launch_monitoring_interface
 from arm_bench.scanner import (
     scan_dynamixel_motors,
     scan_cameras,
@@ -43,10 +36,9 @@ from arm_bench.control import (
     deploy_control_algorithm,
     ControlDeployer
 )
-from arm_bench.matlab_integration import launch_matlab_tuning, MATLABEngine
 from arm_bench.dynamixel_control import DynamixelController
 
-app = typer.Typer(help="arm-bench: Robot arm benchmarking and control tool")
+app = typer.Typer(help="MERLIN: multi-arm robotics testbed (command: arm-bench)")
 console = Console()
 
 # Global state
@@ -62,197 +54,24 @@ dynamixel_controller = None  # Global controller instance
 @app.command()
 def version():
     """Display version information"""
-    console.print("[bold green]arm-bench v0.1.0[/bold green]")
-    console.print("Robot arm control and benchmarking toolkit")
+    console.print("[bold green]MERLIN v0.2.0[/bold green]")
+    console.print("Multi-arm Experimental Robotics Learning and INtegration")
 
 
 @app.command()
-def start():
-    """Launch the main application with GUI"""
-    global current_mode, current_arm_type, current_config
-    
-    console.print("[bold cyan]Launching arm-bench...[/bold cyan]")
-    
-    # Step 1: Select Interbotix arm type
-    console.print("\n[cyan]Step 1: Select your robot arm type[/cyan]")
-    arm_type = launch_arm_selection()
-    
-    if not arm_type:
-        console.print("[yellow]No arm selected. Exiting.[/yellow]")
-        return
-    
-    current_arm_type = arm_type
-    arm_info = INTERBOTIX_ARMS.get(arm_type, {})
-    console.print(f"[green]Selected arm: {arm_info.get('name', arm_type)}[/green]")
-    
-    # Step 2: Select operation mode (bilateral/bimanual)
-    console.print("\n[cyan]Step 2: Select operation mode[/cyan]")
-    config = launch_operation_mode_selection(arm_type)
-    
-    if not config:
-        console.print("[yellow]No mode selected. Exiting.[/yellow]")
-        return
-    
-    current_config = config
-    current_mode = config.get('mode', 'bilateral')
-    console.print(f"[green]Selected configuration: {config}[/green]")
-    
-    # Determine if we need hardware
-    needs_hardware = False
-    if config['mode'] in ['bilateral', 'bimanual']:
-        needs_hardware = config.get('leader') == 'hardware' or config.get('follower') == 'hardware'
-        needs_hardware = needs_hardware or config.get('leaders') == 'hardware' or config.get('followers') == 'hardware'
-    elif config['mode'] == 'control':
-        needs_hardware = config.get('target') == 'hardware'
-    
-    # Scan hardware if needed
-    motors = []
-    cameras = []
-    
-    if needs_hardware:
-        console.print("[cyan]Scanning for hardware...[/cyan]")
-        
-        # Check for Dynamixel port
-        port_to_use = '/dev/ttyDXL' if os.path.exists('/dev/ttyDXL') else None
-        if not port_to_use:
-            # Try common port names
-            for port in ['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyACM0']:
-                if os.path.exists(port):
-                    port_to_use = port
-                    break
-        
-        if port_to_use:
-            console.print(f"[cyan]Found Dynamixel port: {port_to_use}[/cyan]")
-            
-            # Initialize the global controller for position hold
-            global dynamixel_controller
-            try:
-                dynamixel_controller = DynamixelController(port=port_to_use, baudrate=1000000)
-                if dynamixel_controller.connect():
-                    console.print("[green]Connected to Dynamixel bus[/green]")
-                    
-                    # Scan for motors
-                    motor_ids = dynamixel_controller.scan_motors(range(1, 20))
-                    console.print(f"[green]Found {len(motor_ids)} motors: {motor_ids}[/green]")
-                    
-                    # IMPORTANT: Enable position hold mode on all motors
-                    # This prevents manual movement - all movement must be from code
-                    console.print("[cyan]Enabling position hold mode on all motors...[/cyan]")
-                    if dynamixel_controller.enable_all_position_hold():
-                        console.print("[green]✓ All motors are in position hold mode[/green]")
-                        console.print("[yellow]Note: Motors will resist manual movement. All control is via code.[/yellow]")
-                    else:
-                        console.print("[yellow]Warning: Some motors failed to enable position hold[/yellow]")
-                    
-                    # Set stiff mode for better position holding
-                    console.print("[cyan]Setting stiff mode for position holding...[/cyan]")
-                    dynamixel_controller.set_all_stiff_mode(stiffness=800)
-                else:
-                    console.print("[yellow]Failed to connect to Dynamixel bus[/yellow]")
-                    dynamixel_controller = None
-            except Exception as e:
-                console.print(f"[yellow]Dynamixel controller error: {e}[/yellow]")
-                dynamixel_controller = None
-        
-        with console.status("Scanning Dynamixel motors..."):
-            motors = scan_dynamixel_motors(port=port_to_use, simulate=False, baudrate=1000000)
-            if not motors:
-                console.print("[yellow]No motors found. Using simulation.[/yellow]")
-                motors = scan_dynamixel_motors(simulate=True)
-        
-        console.print(f"[green]Found {len(motors)} motors[/green]")
-        
-        # Scan cameras
-        with console.status("Scanning cameras..."):
-            cameras = scan_cameras()
-        
-        console.print(f"[green]Found {len(cameras)} cameras[/green]")
-        
-        # Save configuration
-        save_hardware_config(motors, cameras)
-    else:
-        # Simulation mode - use simulated hardware
-        motors = scan_dynamixel_motors(simulate=True)
+def start(arm: Optional[str] = typer.Option(None, help="Arm model hint for the joint sliders, e.g. vx300s")):
+    """Open the MERLIN window (directly on the Control tab).
+
+    Motors are NOT touched at startup: the Interbotix driver or the bilateral
+    controller own the serial port. Live motor data comes from ROS, or from a
+    read-only port scan in the Motor Status tab.
+    """
+    console.print(f"[bold cyan]Launching {APP_NAME}...[/bold cyan]")
+    with console.status("Scanning cameras..."):
         cameras = scan_cameras()
-    
-    # Store globally
-    global current_motors, current_cameras
-    current_motors = motors
-    current_cameras = cameras
-    
-    # Launch monitoring interface with motor and camera data
-    console.print("[cyan]Launching monitoring interface...[/cyan]")
-    console.print("[yellow]Note: GUI window should open. Close the window to exit.[/yellow]")
-    
-    # CRITICAL: Small delay to let previous Tk instances fully clean up
-    # This prevents segfaults from multiple sequential Tk() creations
-    import time
-    time.sleep(1.0)  # Increased delay for better stability
-    
-    # Force garbage collection to clean up previous GUI instances
-    import gc
-    gc.collect()
-    
-    # Force Tkinter to fully reset by clearing internal state
-    try:
-        import tkinter as tk
-        # Try to destroy any lingering Tk instances
-        for widget in tk._default_root.winfo_children() if tk._default_root else []:
-            widget.destroy()
-        if tk._default_root:
-            tk._default_root.destroy()
-            tk._default_root = None
-    except:
-        pass
-    
-    # Additional delay after cleanup
-    time.sleep(0.5)
-    gc.collect()
-    
-    # Determine the mode string for display
-    mode_display = current_mode
-    if config['mode'] == 'bilateral':
-        if config.get('leader') == 'hardware' and config.get('follower') == 'hardware':
-            mode_display = "bilateral_hw"
-        elif config.get('leader') == 'simulation' and config.get('follower') == 'simulation':
-            mode_display = "bilateral_sim"
-        else:
-            mode_display = "bilateral_hybrid"
-    elif config['mode'] == 'bimanual':
-        if config.get('leaders') == 'hardware' and config.get('followers') == 'hardware':
-            mode_display = "bimanual_hw"
-        elif config.get('leaders') == 'simulation' and config.get('followers') == 'simulation':
-            mode_display = "bimanual_sim"
-        else:
-            mode_display = "bimanual_hybrid"
-    elif config['mode'] == 'control':
-        mode_display = f"control_{config.get('target', 'sim')}_{config.get('count', 1)}arm"
-    
-    # Launch monitoring interface in subprocess to avoid Tk() segfaults
-    # Running in separate process gives fresh Tkinter state
-    import subprocess
-    import json
-    import sys
-    
-    # Get path to subprocess launcher
-    subprocess_script = Path(__file__).parent / "monitoring_subprocess.py"
-    
-    # Serialize motors and cameras to JSON
-    motors_json = json.dumps(motors)
-    cameras_json = json.dumps(cameras)
-    
-    # Run in subprocess
-    try:
-        result = subprocess.run(
-            [sys.executable, str(subprocess_script), mode_display, motors_json, cameras_json],
-            check=False
-        )
-        if result.returncode != 0:
-            console.print(f"[yellow]Monitoring interface exited with code {result.returncode}[/yellow]")
-    except KeyboardInterrupt:
-        console.print("[yellow]Interrupted by user[/yellow]")
-    
-    console.print("[green]GUI closed. Exiting arm-bench.[/green]")
+    console.print(f"[green]Found {len(cameras)} camera(s)[/green]")
+    launch_monitoring_interface(cameras=cameras, arm_type=arm)
+    console.print(f"[green]{APP_NAME} closed.[/green]")
 
 
 @app.command()
@@ -438,49 +257,51 @@ def translate(
 
 @app.command()
 def record(
-    action: str = typer.Argument(..., help="Action: start, stop, or list"),
-    episode_name: Optional[str] = typer.Option(None, help="Episode name")
+    action: str = typer.Argument("start", help="start (records until Ctrl+C or --duration) or list"),
+    episode_name: Optional[str] = typer.Option(None, help="Episode name"),
+    output: Optional[str] = typer.Option(None, help="Output directory (default ~/merlin_datasets)"),
+    camera: Optional[list[int]] = typer.Option(None, help="Camera index to record, repeatable (e.g. --camera 0 --camera 2)"),
+    rate: float = typer.Option(30.0, help="Recording rate [Hz]"),
+    duration: Optional[float] = typer.Option(None, help="Stop after this many seconds"),
 ):
-    """Record RLDS dataset"""
-    global recorder
-    
-    if action == "start":
-        if recorder is None:
-            recorder = create_recorder()
-        
-        console.print("[cyan]Starting RLDS recording...[/cyan]")
-        recorder.start_recording(episode_name)
-        console.print("[green]✓ Recording started[/green]")
-        console.print("Run 'arm-bench record stop' to finish")
-    
-    elif action == "stop":
-        if recorder and recorder.recording:
-            console.print("[cyan]Stopping recording...[/cyan]")
-            recorder.stop_recording()
-            console.print("[green]✓ Recording saved[/green]")
-        else:
-            console.print("[yellow]No active recording[/yellow]")
-    
-    elif action == "list":
-        if recorder is None:
-            recorder = create_recorder()
-        
-        episodes = recorder.list_episodes()
-        
-        if episodes:
-            table = Table(title="Recorded Episodes")
-            table.add_column("Episode Name", style="cyan")
-            
-            for ep in episodes:
-                table.add_row(ep)
-            
-            console.print(table)
-        else:
+    """Record an episode: joint states of every arm on ROS + camera frames + calibration."""
+    import time as _time
+    from arm_bench.episode_recorder import list_episodes
+
+    if action == "list":
+        episodes = list_episodes(output)
+        if not episodes:
             console.print("[yellow]No episodes found[/yellow]")
-    
-    else:
-        console.print(f"[red]Unknown action: {action}[/red]")
-        console.print("Use: start, stop, or list")
+            return
+        table = Table(title="Recorded Episodes")
+        table.add_column("Episode Name", style="cyan")
+        for ep in episodes:
+            table.add_row(ep)
+        console.print(table)
+        return
+    if action != "start":
+        console.print(f"[red]Unknown action: {action}[/red] (use start or list)")
+        raise typer.Exit(1)
+
+    cams = {f"Camera {c}": c for c in (camera or [])}
+    rec = create_recorder(output, cameras=cams, rate_hz=rate)
+    _time.sleep(1.5)       # let ROS discover */joint_states and cameras deliver a frame
+    arms = rec.state_source.arms() if rec.state_source.available else []
+    console.print(f"Arms on ROS: {', '.join(arms) or '[yellow]none[/yellow]'} | cameras: {list(cams) or 'none'}")
+    if not arms and not cams:
+        console.print("[red]Nothing to record (no */joint_states and no --camera).[/red]")
+        raise typer.Exit(1)
+    path = rec.start_recording(episode_name)
+    console.print(f"[green]Recording to {path}[/green] — Ctrl+C to stop")
+    try:
+        t0 = _time.time()
+        while duration is None or _time.time() - t0 < duration:
+            _time.sleep(0.2)
+    except KeyboardInterrupt:
+        pass
+    s = rec.stop_recording()
+    console.print(f"[green]✓ Saved {s['num_steps']} steps, {s['frames_written']} frames[/green] "
+                  f"→ {s['episode_dir']}")
 
 
 @app.command()

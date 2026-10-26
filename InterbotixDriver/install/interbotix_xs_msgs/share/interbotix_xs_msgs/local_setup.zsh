@@ -1,1 +1,0 @@
-/home/yash_sai/Yash/Arm/InterbotixDriver/build/interbotix_xs_msgs/ament_cmake_environment_hooks/local_setup.zsh

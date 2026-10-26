@@ -5,6 +5,10 @@ Based on manipulator_teleop/webxr_api_server implementation
 Provides camera-based AR teleoperation using mobile devices with WebXR support
 """
 
+# Postponed annotations: the WebSocket type hints below must not be evaluated
+# when fastapi is missing, otherwise importing arm_bench fails entirely.
+from __future__ import annotations
+
 import json
 import asyncio
 import ssl

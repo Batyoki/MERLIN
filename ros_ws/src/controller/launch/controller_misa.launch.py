@@ -4,6 +4,11 @@ Bilateral teleoperation launch.
   ros2 launch controller controller_misa.launch.py                     # controller only
   ros2 launch controller controller_misa.launch.py launch_drivers:=true  # + both arms
   ros2 launch controller controller_misa.launch.py control_mode:=pp log_dir:=/tmp/merlin
+  ros2 launch controller controller_misa.launch.py params_file:=/path/my_gains.yaml use_rviz:=true
+
+params_file  : controller YAML (default: the installed config/controller.yaml)
+loop_rate_hz : overrides the YAML loop rate when > 0
+use_rviz     : with launch_drivers:=true, opens RViz showing the slave arm
 
 With launch_drivers:=true the RX200 master is started in current mode and the
 VX300s slave in position mode (config/modes_master.yaml, modes_slave.yaml).
@@ -25,6 +30,9 @@ def generate_launch_description():
     config = os.path.join(share, "config", "controller.yaml")
 
     args = [
+        DeclareLaunchArgument("params_file", default_value=config),
+        DeclareLaunchArgument("loop_rate_hz", default_value="0.0"),
+        DeclareLaunchArgument("use_rviz", default_value="false"),
         DeclareLaunchArgument("launch_drivers", default_value="false"),
         DeclareLaunchArgument("control_mode", default_value="misa"),
         DeclareLaunchArgument("log_dir", default_value=""),
@@ -44,7 +52,7 @@ def generate_launch_description():
                     "robot_model": model,
                     "robot_name": LaunchConfiguration(name),
                     "mode_configs": os.path.join(share, "config", modes),
-                    "use_rviz": "false",
+                    "use_rviz": LaunchConfiguration("use_rviz") if model == "vx300s" else "false",
                 }.items(),
                 condition=IfCondition(LaunchConfiguration("launch_drivers"))))
     except Exception:
@@ -54,8 +62,10 @@ def generate_launch_description():
         package="controller",
         executable="controller",
         name="controller",                 # must match the YAML root key
-        parameters=[config, {"control_mode": LaunchConfiguration("control_mode"),
-                             "log_dir": LaunchConfiguration("log_dir")}],
+        parameters=[LaunchConfiguration("params_file"),
+                    {"control_mode": LaunchConfiguration("control_mode"),
+                     "log_dir": LaunchConfiguration("log_dir"),
+                     "loop_rate_override_hz": LaunchConfiguration("loop_rate_hz")}],
         output="screen",
     )
     return LaunchDescription(args + drivers + [controller])

@@ -1,5 +1,0 @@
-[console_scripts]
-calibration_node = data_collection_pkg.nodes.calibration_node:main
-session_node = data_collection_pkg.nodes.session_node:main
-usb_camera_node = data_collection_pkg.nodes.usb_camera_node:main
-writer_node = data_collection_pkg.nodes.writer_node:main

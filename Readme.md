@@ -1,251 +1,81 @@
-### Welcome to ARM Bench - Robot Arm Control & Development Toolkit! 🤖
+# MERLIN — Multi-arm Experimental Robotics Learning and INtegration
 
-## Quick Start
+A testbed for Interbotix X-Series arms:
+- bilateral (master–slave) teleoperation with sensorless force feedback;
+- other teleoperation modes (joint sliders, joystick, WebXR);
+- dataset recording with camera calibration;
+- control-algorithm tuning.
 
-### Installation
-```bash
-# Basic installation
-cd arm_bench_dev
-pip install -e .
+## Repository layout
 
-# With visualization and control development features
-pip install -e ".[visualization]"
+| Path | What it is |
+|---|---|
+| `arm_bench_dev/` | The MERLIN application (Python package `arm_bench`, command `arm-bench`) |
+| `ros_ws/src/controller` | Bilateral controller node (MISA + MPC, momentum observer, energy tank) |
+| `ros_ws/src/data_collection_pkg` | ROS camera publisher, AprilTag calibration and frame writer nodes |
+| `ros_ws/src/arm_launch` | `multi_arm.launch.py` — bring up several arms |
+| `ros_ws/src/moveit_2_config` | MoveIt 2 configuration |
+| `experiments/bilateral_sim` | MuJoCo benchmark and torque studies used in the paper |
+| `tools/` | `evaluate_tracking.py` (paper Table I from a log), `identify_position_loop.py` |
+| `docs/` | `CODE_FIXES.md`, `MATH_AND_COMPARISON.md`, `TORQUE_STUDIES.md`, `ISSUE_CONTEXT_STATUS.md` |
+| `archive/` | Superseded code, kept for reference (ignored by colcon) |
 
-# With MATLAB integration
-pip install -e ".[visualization,matlab]"
-
-# Everything (all features)
-pip install -e ".[dev]"
-```
-
-### Basic Commands
-```bash
-arm-bench version              # Check version
-arm-bench --help              # See all commands
-arm-bench start               # Launch GUI
-arm-bench setup               # Scan hardware
-```
-
-## 🆕 New Feature: Control Algorithm Development Studio
-
-Launch the comprehensive control development environment:
+## Install
 
 ```bash
-arm-bench matlab-tune
+# 1. ROS 2 Humble + Interbotix driver: see InterbotixDriver/README.md
+# 2. MERLIN ROS packages
+cd ros_ws && colcon build && source install/setup.bash && cd ..
+# 3. MERLIN application
+pip install -e "arm_bench_dev[full]"
+pip install pin h5py pupil-apriltags     # dynamics, episode files, AprilTag calibration
 ```
 
-**Features:**
-- ✅ Define custom control algorithms in Python
-- ✅ Configure and tune parameters with bounds
-- ✅ Run simulations with multiple plant models
-- ✅ Optimize using MATLAB or Python (scipy)
-- ✅ Compare multiple parameter sets
-- ✅ Real-time performance visualization
-- ✅ Save/load configurations
-- ✅ Export to ROS2 for hardware deployment
-
-**Documentation:**
-- **MATLAB_QUICK_START.md** - Quick 5-minute guide
-- **MATLAB_STUDIO.md** - Complete user manual
-- **examples/EXAMPLES.md** - 10 detailed examples with pre-built configs
-
-**Example Workflow:**
-```bash
-# 1. Launch studio
-arm-bench matlab-tune
-
-# 2. Load example
-# In GUI: Load Config → examples/pd_controller_config.json
-
-# 3. Run simulation
-# Click "▶️  Run Simulation"
-
-# 4. Optimize parameters
-# Click "🔧 Optimize Parameters"
-
-# 5. View results
-# See graphs and optimized parameters
-
-# 6. Deploy to robot
-arm-bench create-control position --output my_controller.py
-# Edit with optimized parameters
-arm-bench deploy-control my_controller.py --mode position
-arm-bench launch-control position --freq 100
-```
-
-## All Available Commands
+## Run
 
 ```bash
-# General
-arm-bench version              # Show version info
-arm-bench start               # Launch main GUI
-arm-bench setup               # Scan and configure hardware
-
-# Visualization
-arm-bench visualize           # Launch RViz for robot visualization
-
-# Teleoperation
-arm-bench teleop              # Start teleoperation interface
-
-# Workspace Building
-arm-bench build-workspace     # Generate Interbotix workspace
-
-# Bimanual Control
-arm-bench translate           # Translate between Reactor/Viper configs
-
-# Recording
-arm-bench record              # Record RLDS datasets
-
-# Camera Management
-arm-bench cameras             # Scan and list cameras
-
-# Custom Control Algorithms
-arm-bench create-control      # Create control template
-arm-bench deploy-control      # Deploy to ROS2 workspace
-arm-bench launch-control      # Launch deployed controller
-arm-bench control-info        # Show control documentation
-
-# Control Development
-arm-bench matlab-tune         # Launch Control Development Studio
+arm-bench start                 # opens MERLIN on the Control tab
 ```
 
-## Features Overview
+**Control tab**
+- **Visualization → Run ROS 2 Files:** open RViz, run any package's launch file, or run a single node.
+- **Teleoperation:** Joint Sliders (publishes to `<arm>/commands/joint_group`), Joystick, WebXR.
+- **Bilateral Teleoperation:**
+  - Pick a mode: Proposed (MISA + MPC), Position-force, Position-position or Unilateral.
+  - Set the control frequency and, optionally, *Load Control Config* (a copy of `ros_ws/src/controller/config/controller.yaml`).
+  - Then *Start* / *Stop*. With "Start both arm drivers" the RX200 master runs in current mode and the VX300s slave in position mode. "Open RViz" shows the slave.
+  - Controller logs go to `~/.merlin/logs/`.
+- **Custom Control Algorithms → MATLAB Parameter Tuning:** MERLIN comes back when that window closes.
 
-### 1. Hardware Management
-- Automatic Dynamixel motor scanning
-- Camera detection and configuration
-- Motor status monitoring with live updates
+**Motor Status:** live data from ROS `*/joint_states`. Without a running driver, choose a port and press *Scan Port* for a read-only scan. Only motors that answer are listed.
 
-### 2. GUI Interface
-- Professional dark theme
-- Real-time motor information
-- Live camera feeds
-- Control algorithm selection
-- Recording interface
+**Cameras:** *Scan Cameras*, *Start All Cameras*, and *Calibrate* per camera (checkerboard intrinsics + AprilTag extrinsics). Results go to `~/.merlin/calibration/`.
 
-### 3. Control Development
-- **Python-based control logic** definition
-- **Parameter tuning** with optimization
-- **Multiple plant models** for simulation
-- **Performance comparison** tools
-- **Real-time visualization** with matplotlib
-- **MATLAB integration** (optional)
+**Recording:**
+- records every arm's joint states, camera frames and calibration;
+- writes `steps.jsonl`, `camera_frames/` and `episode.h5` per episode.
 
-### 4. ROS2 Integration
-- Automatic package creation
-- Standardized message formats
-- Launch file generation
-- colcon build integration
-
-### 5. Data Recording
-- RLDS dataset format
-- Multi-camera support
-- Episode management
-
-## Documentation
-
-- **NEW_FEATURES.md** - Quick reference for all new features
-- **ENHANCEMENTS.md** - Technical implementation details
-- **MATLAB_STUDIO.md** - Complete Control Development Studio guide
-- **MATLAB_QUICK_START.md** - 5-minute quick start
-- **examples/EXAMPLES.md** - 10 control algorithm examples
-
-## Example: Complete Control Development Workflow
+## Command line
 
 ```bash
-# 1. Start with GUI
-arm-bench start
+arm-bench start [--arm vx300s]
+arm-bench record start [--camera 0 --camera 2] [--rate 30] [--duration 60] [--output DIR]
+arm-bench record list
+arm-bench cameras               # list cameras
+arm-bench setup                 # scan Dynamixel motors and cameras
+arm-bench matlab-tune           # control-algorithm tuning window
+arm-bench --help                # all commands
 
-# 2. Scan hardware
-# Select mode and view motor information
-
-# 3. Develop control algorithm
-arm-bench matlab-tune
-# Define PD controller
-# Add parameters: Kp=10, Kd=1
-# Run simulation
-# Optimize parameters
-# Get: Kp=15.23, Kd=2.46
-
-# 4. Create ROS2 controller
-arm-bench create-control position --output pd_controller.py
-
-# 5. Edit controller with optimized parameters
-# (Edit pd_controller.py with Kp=15.23, Kd=2.46)
-
-# 6. Deploy to ROS2
-arm-bench deploy-control pd_controller.py --mode position --freq 100
-
-# 7. Launch on robot
-arm-bench launch-control position --freq 100
-
-# 8. Record data
-arm-bench record start --episode-name "tuned_pd_test"
-# Run controller, collect data
-arm-bench record stop
+ros2 launch controller controller_misa.launch.py launch_drivers:=true use_rviz:=true \
+     control_mode:=misa params_file:=/path/gains.yaml log_dir:=/tmp/merlin
+python3 tools/evaluate_tracking.py /tmp/merlin/bilateral_R_*.csv --markdown
 ```
 
-## Troubleshooting
+## Tests
 
-### Installation Issues
 ```bash
-# If dependencies fail, create virtual environment
-python3 -m venv arm-test
-source arm-test/bin/activate  # On macOS/Linux
-pip install -e ".[dev]"
+cd arm_bench_dev && PYTHONPATH=src python3 -m pytest tests          # GUI back-ends, launcher
+cd ros_ws/src/controller && python3 -m pytest test                 # control math
+python3 experiments/bilateral_sim/run.py                           # MuJoCo benchmark
+python3 experiments/bilateral_sim/torque_studies.py                # torque studies
 ```
-
-### Camera Issues
-```bash
-pip install opencv-python pillow
-```
-
-### MATLAB Issues
-```bash
-# Option 1: Install MATLAB Engine API
-pip install matlabengine
-
-# Option 2: Use Python-based optimization (no MATLAB needed)
-# In the studio, select "Python Differential Evolution"
-```
-
-### ROS2 Issues
-```bash
-# Source ROS2 workspace
-source /opt/ros/humble/setup.bash
-source ~/arm_bench_ros_ws/install/setup.bash
-```
-
-## Requirements
-
-**Minimum:**
-- Python 3.8+
-- numpy, typer, pyyaml, rich
-
-**Recommended:**
-- matplotlib, scipy (for control development)
-- opencv-python, pillow (for camera feeds)
-- pygame (for teleoperation)
-
-**Optional:**
-- matlabengine (for MATLAB integration)
-- ROS2 Humble (for hardware deployment)
-
-## Support
-
-For help:
-```bash
-arm-bench --help
-arm-bench <command> --help
-```
-
-**Documentation Files:**
-- Quick reference: `NEW_FEATURES.md`
-- Control studio: `MATLAB_STUDIO.md`
-- Examples: `examples/EXAMPLES.md`
-
----
-
-
-
-

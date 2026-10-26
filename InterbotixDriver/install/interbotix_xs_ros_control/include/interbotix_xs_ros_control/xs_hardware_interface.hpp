@@ -1,1 +1,0 @@
-/home/yash_sai/Yash/Arm/InterbotixDriver/src/interbotix_ros_toolboxes/interbotix_xs_toolbox/interbotix_xs_ros_control/include/interbotix_xs_ros_control/xs_hardware_interface.hpp

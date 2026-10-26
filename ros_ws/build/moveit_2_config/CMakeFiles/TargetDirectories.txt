@@ -1,9 +1,0 @@
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/uninstall.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/moveit_2_config_uninstall.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/test.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/edit_cache.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/rebuild_cache.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/list_install_components.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/install.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/install/local.dir
-/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/moveit_2_config/CMakeFiles/install/strip.dir

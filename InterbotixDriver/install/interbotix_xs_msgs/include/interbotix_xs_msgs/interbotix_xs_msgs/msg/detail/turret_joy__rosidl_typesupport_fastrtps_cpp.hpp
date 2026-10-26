@@ -1,1 +1,0 @@
-/home/yash_sai/Yash/Arm/InterbotixDriver/build/interbotix_xs_msgs/rosidl_typesupport_fastrtps_cpp/interbotix_xs_msgs/msg/detail/turret_joy__rosidl_typesupport_fastrtps_cpp.hpp

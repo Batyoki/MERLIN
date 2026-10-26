@@ -1,52 +1,45 @@
 # Status of the items in `issue_context.md`
 
-✅ fixed on branch `claude/brave-ride-bizkpi` (PR #1) · 🟡 partly done / verified only in simulation · ❌ still to do.
-"How" points to `docs/CODE_FIXES.md` where a fix is already described.
+✅ done on branch `claude/brave-ride-bizkpi` (PR #1) · 🟡 done in code, needs hardware / paper work · ❌ still to do.
+"Verified" means exercised headless (Xvfb screenshots, simulated camera / Dynamixel bus / `ros2`), not on the robots.
 
-## Control and torque (fixed)
+## Control and torque
 
 | Item | Status | What was done / what remains |
 |---|---|---|
-| Torque: master torque read, passed through the loop, output "too rough or no change at all" | ✅ 🟡 | Root causes found and fixed (CODE_FIXES A1–A13): mA treated as A; master fed its own current back (positive feedback); 25–75 mA current cap below gravity; gravity at the wrong shoulder angle; joint-index bug in slave gravity; estimator/feedback tuning. Torque mimicking now works in simulation (`docs/TORQUE_STUDIES.md` S2: correlation 0.94–0.98). **Remaining:** run on the arms with the checklist at the end of CODE_FIXES. |
-| Control: "Start Control — don't know what algorithm it runs or which topic it publishes to" | ❌ (verified) | It runs **nothing**. `gui.py:1702` only shows a message box ("Publishing to /arm_bench/{mode}_command") followed by `# TODO: Integrate with ROS`. |
-| Control: "Load Control Config" | ❌ (verified) | Also only a message box (`gui.py:1689`); the file is never read. |
-| Control: types of control modes | 🟡 | The bilateral controller now really has 4 modes (`control_mode`: unilateral / pp / pf / misa), selectable via `ros2 launch controller controller_misa.launch.py control_mode:=…`. The GUI dropdown is not wired to it yet. |
-| MPC Controller button: "difficult to trigger, need to test it runs" | 🟡 | The button runs `controller_misa.launch.py`, which **could never have worked** (it asked for `controllers.yaml`, and `config/` wasn't installed). Fixed: the launch file and config are installed, and `launch_drivers:=true` starts both arms in the right modes. **Remaining:** the button should pass `launch_drivers:=true` and also open RViz with the robot loaded. |
-| Reviews: equations | ✅ | `docs/MATH_AND_COMPARISON.md` §1; the code implements them. |
-| Reviews: MPC not compared, no baseline/ablation | ✅ 🟡 | Simulation baselines (unilateral, P-P, P-F), ablations, delay and stiffness sweeps, and a stability map. Hardware repeat remaining. |
-| Reviews: RMSE issue | ✅ | 0.3418 is the mean of per-joint RMSEs; pooled is 0.3583. `controller/metrics.py` and `tools/evaluate_tracking.py` compute pooled RMSE, lag, and lag-compensated RMSE from logs. Cause of the large RMSE found (B1–B3). |
-| Reviews: force-feedback path never measured | 🟡 | Measured in simulation against exact ground truth (S1, S2, S3). Hardware protocol with known masses / kitchen scale in MATH_AND_COMPARISON §4. |
-| Reviews: check figures | 🟡 | New figures generated (comparison, joint tracking, S1–S5) and replacements proposed. Paper not edited yet. |
-| Reviews: prior work | ❌ | Reference list proposed (MATH_AND_COMPARISON §4.5). Paper not edited. |
-| Reviews: "software infrastructure, not control theory" | 🟡 | Contribution reframed: momentum-observer-based sensorless feedback, energy-tank passivity (with proposition), and a correct offset-free MPC for a position-controlled slave, plus ablations. Paper not edited. |
+| Torque: master torque read, passed through the loop, output "too rough or no change at all" | 🟡 | Root causes fixed (CODE_FIXES A1–A13). Torque mimicking works in simulation (`docs/TORQUE_STUDIES.md` S2, correlation 0.94–0.98). **Remaining:** first run on the arms (checklist at the end of CODE_FIXES). |
+| Control: Start Control (what does it run?) | ✅ verified | Starts the bilateral controller (`ros2 launch controller controller_misa.launch.py`) with the selected mode, frequency, config and optional drivers/RViz. **Stop Control** ends it (SIGINT to the launch group). Output goes to `~/.merlin/logs/controller_<time>.log`. |
+| Control: Load Control Config | ✅ verified | Picks a controller YAML; it is checked for the `controller: ros__parameters:` section, then passed as `params_file`. |
+| Control: types of control modes | ✅ | Dropdown: Proposed (MISA + MPC) / Position-force / Position-position / Unilateral. |
+| MPC controller: run it from the button, and have RViz come up with the robot loaded | ✅ 🟡 | "Start both arm drivers" + "Open RViz with the robot" checkboxes pass `launch_drivers:=true use_rviz:=true` (RViz opens through the slave's Interbotix launch). Needs a ROS machine to confirm. |
+| Reviews: equations · baselines/ablation · RMSE | ✅ | `docs/MATH_AND_COMPARISON.md`, `experiments/bilateral_sim`, `controller/metrics.py`. |
+| Reviews: force-feedback path never measured | 🟡 | Simulation with exact ground truth (TORQUE_STUDIES S1–S3); hardware protocol in MATH_AND_COMPARISON §4. |
+| Reviews: figures · prior work · "infrastructure not control" | 🟡 | Figures and reference list prepared; **paper text not edited**. |
 
-## UI / GUI (all still to do)
+## UI / GUI
 
-| Item | Status | Notes / how |
+| Item | Status | Notes |
 |---|---|---|
-| Change title to MERLIN | ❌ | Titles are still "arm-bench – …" (`gui.py:131,234,427,535`), "ARM Bench – Control Algorithm Development Studio" (`matlab_integration_gui.py:33`) and "RViz / Launch Manager". |
-| Remove "first opening window" and "operation mode window"; open directly at the controls panel; no model / 4-arm selection | ❌ | The flow is still Arm Selection → Operation Mode → Mode Selection → Monitoring (`gui.py:126, 234, 427, 535`). Make `launch_monitoring_interface` the entry point and start on the Control tab. |
-| Remove the Overview section | ❌ | Still the first tab (`gui.py:619`). |
-| Seamless back/forth navigation; no way back from the MATLAB window | ❌ | The PyQt5 tuning window (`control_simulator_gui.py`) is a separate application with no return path. Launch it as a child window, or add a "Back to MERLIN" action that closes it and raises the main window. |
-| One "Run ROS2 files" button (RViz, launch files, nodes) under Visualization | ❌ | Visualization still has Launch RViz, 2 Robot Simulation, 4 Robot Simulation and a checkbox (`gui.py:843-881`). `rviz_launch_gui.py` already has a launch manager to reuse. |
-| One button per operation mode (slider, WebXR, VR, …) | ❌ | Teleoperation has Joystick, Camera (WebXR), Joint Controller and MPC (`gui.py:906-942`). |
-| Custom control: only "open MATLAB parameter tuning" | ❌ | Remove the mode dropdown, frequency, Load and Start buttons (`gui.py:955-1040`), which do nothing anyway. |
-| No colour/font/style changes, only deletions and navigation | — | Constraint noted for the UI work. |
-| Motor status: only connected motors, no hardcoded values, search per port | ❌ | Hardcoded XM430/XL430 by index and 30 °C default (`gui.py:1452-1463`). How: CODE_FIXES D13. |
-| Cameras: test with multiple cameras | ❌ | Not testable here (no cameras). |
-| Cameras: calibration button running the Python script | ❌ | The ROS calibration node is a stub, and `session.py` can't import (CODE_FIXES D2–D4). Fix those, then add a button that runs the AprilTag calibration. |
-| RLDS collection "seems to be working" | ❌ **actually broken** | It records **synthetic** joint data (sin/cos/random) and no camera frames (CODE_FIXES D1). The saved datasets contain only JPGs. |
-| Param tuning: which files run; two sets, one buggy | ✅ (identified) | **In use:** `matlab_integration_enhanced.py` → `control_simulator/control_simulator_gui.py` (PyQt5), from both the GUI button and `arm-bench matlab-tune`. **Unused set:** `arm_bench/matlab_integration_gui.py` + `matlab_integration_ui.py` + `matlab_integration.py` and `control_simulator_gui_tkinter.py`. Both have bugs (CODE_FIXES D7, D8). |
-| Param tuning: pick parameters from the script (`#parameter` comment syntax) | ❌ | Proposed syntax: `# @param name default min max` above a module-level assignment. Parse with `ast` + regex in `control_simulator_gui.py` when a script is loaded. |
-| Teleop: joystick never tested; citation? | ❌ | Not cited in the paper. Cite the source repo. Test needs hardware. |
-| Teleop: WebXR never tested; citation? | ❌ | Comes from `sudhirpratapyadav/manipulator_teleop` (+ mink); not cited. Add both. |
-| Joint slider works in RViz sim | — | No change. |
-| Multi-arm visualization done; hybrid sim = launch parameters | — | No change. |
+| Change title to MERLIN | ✅ | Main window, its header, the "Run ROS 2 Files" window, the tuning window, the calibration and joint-slider windows, and the CLI. |
+| Remove the first opening window and operation-mode window; open directly on the controls; no model / 4-arm selection | ✅ verified | `arm-bench start` opens the main window on the **Control** tab. The Arm Selection, Operation Mode and Mode Selection windows are deleted. |
+| Remove the Overview section | ✅ | Tabs: Control · Motor Status · Cameras · Recording. |
+| Seamless navigation; no way back from the MATLAB window | ✅ verified | MERLIN hides while the tuning window is open and returns when it closes. The tuning window has a "← Back to MERLIN" button; the calibration and Run-ROS-2 windows have Back buttons. |
+| One "Run ROS 2 files" button (RViz, launch files, nodes) under Visualization | ✅ | Opens the launch manager, which now lists launch files **and** nodes (`ros2 run`) and has "Open RViz". The 2/4-robot PyBullet buttons and the checkbox are removed. |
+| One button per operation mode | ✅ | Teleoperation: Joint Sliders · Joystick · WebXR. Bilateral master–slave has its own panel (Start/Stop). VR: no code exists, so no button was added. |
+| Custom control: only MATLAB parameter tuning | ✅ | That panel now has only "MATLAB Parameter Tuning". |
+| No colour/font/style changes | ✅ | Same palette, fonts and button styles; only removals, renames and the new controls. |
+| Motor status: only connected motors, no hardcoded values, search per port | ✅ verified (simulated bus) | Live from ROS `*/joint_states` when the driver runs; otherwise port + baud selector, "Scan Port", read-only Dynamixel reads (model, position, velocity, current/load, voltage, temperature). Empty when nothing answers. Temperature/voltage are not shown in ROS mode (the driver doesn't publish them). |
+| Cameras: test with multiple cameras | 🟡 | The grid handles N cameras (2 per row) and "Scan Cameras" re-detects. Not testable here without cameras. |
+| Cameras: calibration button | ✅ verified (synthetic images) | "Calibrate" on each camera: checkerboard intrinsics, AprilTag extrinsics, Plücker ray embeddings, saved per camera and copied into each episode. |
+| RLDS collection | ✅ verified | Was saving frozen joint values (GUI) or made-up sine/random data (CLI). Now real `*/joint_states` + frames + calibration → `steps.jsonl` + JPEGs + `episode.h5`. |
+| Param tuning: which files run; two sets, one buggy | ✅ | In use: `control_simulator/control_simulator_gui.py` (fixed, CODE_FIXES D7/D8). Unused Tkinter studio moved to `archive/`. |
+| Param tuning: read parameters from the script (`#parameter` syntax) | ❌ | Not done. Proposed syntax: `# @param name default min max` above the assignment, parsed with `ast` when the script loads. |
+| Teleop: joystick / WebXR never tested; citations | ❌ | Need hardware / a headset. Citations (D12) intentionally left for you. |
 
 ## README / docs
 
 | Item | Status | Notes |
 |---|---|---|
-| README "seriously outdated" | ❌ | Still describes "ARM Bench" and commands that don't match the GUI. The new controller docs exist (`docs/CODE_FIXES.md`, `docs/MATH_AND_COMPARISON.md`, `docs/TORQUE_STUDIES.md`, comments in `config/controller.yaml`, header of `controller_misa.launch.py`), but the top-level README still needs rewriting. |
-| All valid commands; which module does what | ❌ | Can be generated from `cli.py` (Typer commands) plus the package layout. |
-| Control file format and how to use it; how to write control logic in the MATLAB window (language, example); how to save and compare | ❌ | Needs the `# @param` syntax decision above, and one worked example (a PD controller script). |
+| README outdated; list of valid commands; which module does what | ✅ | Top-level `Readme.md` rewritten: start, record, controller launch, the GUI tabs, the module map, and where the docs are. |
+| Control file format and how to use it | ✅ | `ros_ws/src/controller/config/controller.yaml` is the format (every key commented); Load Control Config takes a copy of it. |
+| How to write control logic in the MATLAB window, with a worked example; save and compare | ❌ | Not done (depends on the `# @param` decision). |

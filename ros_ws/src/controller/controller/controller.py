@@ -161,6 +161,7 @@ class BilateralNode(Node):
         P("master_ns", "master")
         P("slave_ns", "slave")
         P("loop_rate_hz", 50.0)
+        P("loop_rate_override_hz", 0.0)            # > 0 overrides loop_rate_hz (GUI field)
         P("state_timeout_s", 0.1)
         P("filter_alpha", 0.3)
         P("use_driver_velocity", False)
@@ -200,7 +201,8 @@ class BilateralNode(Node):
         self.log_dir = g("log_dir")
         self.enabled = True
 
-        dt = 1.0 / g("loop_rate_hz")
+        rate = g("loop_rate_override_hz") if g("loop_rate_override_hz") > 0 else g("loop_rate_hz")
+        dt = 1.0 / rate
         params = BilateralParams(
             mode=g("control_mode"), dt=dt,
             map_scale=arr("map_scale"), map_offset=arr("map_offset"),

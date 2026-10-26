@@ -6,10 +6,15 @@ Run this before using the full GUI to check if everything works
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from arm_bench_dev.src.control_simulator.matlab_engine_interface import MATLABControlSimulator
-from arm_bench_dev.src.control_simulator.parameter_tuner import ParameterTuner, ParameterBounds
+if __name__ != '__main__':
+    # Under pytest: these are hardware/MATLAB integration checks, not unit tests
+    import pytest
+    pytest.importorskip("matlab.engine", reason="MATLAB Engine for Python not installed")
+
+from control_simulator.matlab_engine_interface import MATLABControlSimulator
+from control_simulator.parameter_tuner import ParameterTuner, ParameterBounds
 import matplotlib.pyplot as plt
 import numpy as np
 

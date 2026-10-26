@@ -277,12 +277,7 @@ def scan_cameras() -> List[Dict]:
                 pass
                 
     except ImportError:
-        print("OpenCV not installed. Cannot scan cameras.")
-        # Return simulated cameras for development
-        cameras = [
-            {"id": 0, "name": "Built-in Camera", "resolution": "1920x1080", "fps": 30, "device": "/dev/video0"},
-            {"id": 1, "name": "USB Camera 1", "resolution": "1280x720", "fps": 30, "device": "/dev/video1"},
-        ]
+        print("OpenCV not installed. Cannot scan cameras (pip install opencv-python).")
     except Exception as e:
         print(f"Error scanning cameras: {e}")
     
