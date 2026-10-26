@@ -1,0 +1,18 @@
+# colcon build output (rebuild with `colcon build`)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Generated experiment logs (keep the committed results/ folders)
+experiments/**/logs/

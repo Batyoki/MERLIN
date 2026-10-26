@@ -110,7 +110,7 @@ class ControlSimulatorGUI(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control Algorithm Simulator & Tuner")
+        self.setWindowTitle("MERLIN - Control Algorithm Tuning")
         self.setGeometry(100, 100, 1400, 900)
         
         # Initialize simulator and tuner
@@ -261,6 +261,11 @@ class ControlSimulatorGUI(QMainWindow):
         self.load_btn = QPushButton("Load Configuration")
         self.load_btn.clicked.connect(self.load_configuration)
         btn_layout.addWidget(self.load_btn)
+
+        # Closing this window returns to the MERLIN main window
+        self.back_btn = QPushButton("← Back to MERLIN")
+        self.back_btn.clicked.connect(self.close)
+        btn_layout.addWidget(self.back_btn)
         
         layout.addLayout(btn_layout)
         
@@ -409,7 +414,8 @@ class ControlSimulatorGUI(QMainWindow):
                 self.simulator = MATLABControlSimulator()
                 success = self.simulator.start_engine()
             except Exception as e:
-                QTimer.singleShot(0, lambda: self.log(f"MATLAB engine thread error: {e}"))
+                msg = f"MATLAB engine thread error: {e}"   # `e` is cleared after the except block
+                QTimer.singleShot(0, lambda: self.log(msg))
             finally:
                 QTimer.singleShot(0, lambda: self.on_matlab_engine_started(success))
 

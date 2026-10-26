@@ -115,17 +115,26 @@ class OurRunner:
         ms = self.mi.update(q_m, I_m, t)
         ss = self.si.update(q_s, I_s, t)
         tau_m, q_cmd, diag = self.ctrl.step(ms, ss)
+        diag["tau_hat_s"] = ss.tau_ext
         return tau_m, q_cmd, diag
 
 
-def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, estimator="momentum"):
+def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, estimator="momentum",
+        intent_fn=None, env_fn=None, wall_k=2000.0):
+    """
+    intent_fn(t) -> operator's intended master pose (default: human_intent)
+    env_fn(t, slave, wall) -> force [N] on the slave end-effector (default: the
+        wall, active after T_FREE). Extra logs: true/estimated slave external
+        joint torque, master feedback torque, 3-D forces on both arms.
+    """
+    intent_fn = intent_fn or human_intent
     rng = np.random.default_rng(seed)
     master_model = ArmModel(os.path.join(URDF_DIR, "rx200.urdf"))
     slave_model = ArmModel(os.path.join(URDF_DIR, "vx300s.urdf"))
     master = Arm(os.path.join(URDF_DIR, "rx200.urdf"), Q0, ee_body="rx200/ee_gripper_link")
     slave = Arm(os.path.join(URDF_DIR, "vx300s.urdf"), Q0, ee_body="vx300s/ee_gripper_link")
     loop = DynamixelPositionLoop(SLAVE_KP, SLAVE_KD, VX300S["stall_torque"])
-    wall = Wall(x_w=slave_model.fk(Q0)[0] + 0.03)
+    wall = Wall(x_w=slave_model.fk(Q0)[0] + 0.03, k=wall_k)
 
     if controller_kind == "legacy":
         ctrl = LegacyController(master_model, slave_model, DT_CTRL, fix_units=False)
@@ -149,7 +158,8 @@ def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, es
     to_master = deque([None] * (delay_steps + 1), maxlen=delay_steps + 1)
 
     log = {k: [] for k in ("t", "q_m", "q_s", "q_ref", "f_env", "f_felt", "contact",
-                           "tank", "mpc_ms", "tau_cmd")}
+                           "tank", "mpc_ms", "tau_cmd", "q_s_meas", "I_s", "tau_ext_true",
+                           "tau_hat_s", "tau_felt", "f_env3", "f_felt3", "gamma")}
     n_ctrl = int(T / DT_CTRL)
     unstable = False
     for k in range(n_ctrl):
@@ -182,10 +192,13 @@ def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, es
         f_env = np.zeros(3)
         for _ in range(SUB):
             ts = t + _ * DT_SIM
-            tau_h = HUMAN_K * (human_intent(ts) - master.q) - HUMAN_B * master.dq
+            tau_h = HUMAN_K * (intent_fn(ts) - master.q) - HUMAN_B * master.dq
             master.step(tau_m_applied + tau_h)
-            f_env = (wall.force(slave.ee_pos(), slave.ee_jacobian() @ slave.dq)
-                     if ts >= T_FREE else np.zeros(3))
+            if env_fn is not None:
+                f_env = env_fn(ts, slave, wall)
+            else:
+                f_env = (wall.force(slave.ee_pos(), slave.ee_jacobian() @ slave.dq)
+                         if ts >= T_FREE else np.zeros(3))
             tau_s_motor = loop(q_cmd, slave.q, slave.dq)
             slave.step(tau_s_motor, f_env)
 
@@ -208,6 +221,14 @@ def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, es
         log["tank"].append(diag.get("tank", np.nan))
         log["mpc_ms"].append(diag.get("mpc_ms", 0.0))
         log["tau_cmd"].append(tau_m_applied)
+        log["q_s_meas"].append(q_s_meas)
+        log["I_s"].append(I_s)
+        log["tau_ext_true"].append(slave.ee_jacobian().T @ f_env)
+        log["tau_hat_s"].append(diag.get("tau_hat_s", np.full(5, np.nan)))
+        log["tau_felt"].append(tau_felt)
+        log["f_env3"].append(f_env)
+        log["f_felt3"].append(f_felt)
+        log["gamma"].append(diag.get("gamma", np.nan))
 
     L = {k: np.array(v) for k, v in log.items()}
     res = dict(name=name, unstable=unstable)

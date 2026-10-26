@@ -10,11 +10,11 @@ from uuid import uuid4
 
 import numpy as np
 
-from ..calibration.apriltag import AprilTagCalibrator, AprilTagLayout
-from ..calibration.store import CameraCalibration, calibration_dir
-from ..cameras.usb import CameraInfo, CameraStream, list_cameras
-from ..storage.schema import FrameRecord, SessionManifest
-from ..storage.writer import FrameWriter, JsonlStore, save_json
+from .apriltag import AprilTagCalibrator, AprilTagLayout
+from .store import CameraCalibration, calibration_dir
+from .usb import CameraInfo, CameraStream, list_cameras
+from .schema import FrameRecord, SessionManifest
+from .writer import FrameWriter, JsonlStore, save_json
 
 
 class TimestampedRecorder:
@@ -212,7 +212,7 @@ class TimestampedRecorder:
         stream.release()
 
     def _load_intrinsics(self, device_index: int, width: int, height: int) -> list[list[float]]:
-        from ..calibration.apriltag import default_intrinsics
+        from .apriltag import default_intrinsics
         config = Path("config") / f"camera_{device_index}_intrinsics.json"
         if config.exists():
             import json

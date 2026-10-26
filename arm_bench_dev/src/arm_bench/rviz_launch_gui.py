@@ -1,5 +1,5 @@
-"""Simple Tkinter GUI to pick a ROS2 package, launch file, and extra args, then launch it.
-Adds presets save/load and validation/confirmation of extra args before launching."""
+"""MERLIN - Run ROS 2 Files: open RViz, run a package's launch file, or run a single node.
+Presets save/load and validation/confirmation of extra args before launching."""
 import os
 import json
 import re
@@ -10,17 +10,18 @@ import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, simpledialog
 from typing import List
-from arm_bench.joint_controller import JointCommandWindow
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 if MODULE_DIR not in sys.path:
     sys.path.insert(0, MODULE_DIR)
 
 try:
-    from .launch_manager import get_ros2_packages, list_launch_files, build_ros2_launch_command
+    from .launch_manager import (get_ros2_packages, list_launch_files, build_ros2_launch_command,
+                                 list_executables, build_ros2_run_command)
     from .visualization import prepare_rviz_environment
 except ImportError:
-    from launch_manager import get_ros2_packages, list_launch_files, build_ros2_launch_command
+    from launch_manager import (get_ros2_packages, list_launch_files, build_ros2_launch_command,
+                                list_executables, build_ros2_run_command)
     from visualization import prepare_rviz_environment
 
 
@@ -70,8 +71,8 @@ def validate_extra_args(arg_string: str) -> tuple[bool, List[str]]:
 class RvizLaunchGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("RViz / Launch Manager")
-        self.geometry("700x480")
+        self.title("MERLIN - Run ROS 2 Files")
+        self.geometry("900x620")
 
         self.packages = []
         self.launch_files = []
@@ -90,8 +91,7 @@ class RvizLaunchGUI(tk.Tk):
 
         top_nav = tk.Frame(self, bg="#1e1e1e")
         top_nav.pack(fill=tk.X, padx=8, pady=(8, 0))
-        tk.Button(top_nav, text="← Back", command=self._go_back, bg="#2d2d2d", fg="white", relief=tk.FLAT).pack(side=tk.LEFT)
-        tk.Button(top_nav, text="⌂ Home", command=self._go_home, bg="#2d2d2d", fg="white", relief=tk.FLAT).pack(side=tk.RIGHT)
+        tk.Button(top_nav, text="← Back to MERLIN", command=self._go_back, bg="#2d2d2d", fg="white", relief=tk.FLAT).pack(side=tk.LEFT)
 
         top = ttk.Frame(self)
         top.pack(fill=tk.X, padx=8, pady=6)
@@ -118,8 +118,15 @@ class RvizLaunchGUI(tk.Tk):
         mid = ttk.Frame(self)
         mid.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
 
-        self.launch_list = tk.Listbox(mid, height=10)
-        self.launch_list.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
+        lists = ttk.Frame(mid)
+        lists.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
+        ttk.Label(lists, text="Launch files").pack(anchor=tk.W)
+        self.launch_list = tk.Listbox(lists, height=8, exportselection=False)
+        self.launch_list.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(lists, text="Nodes (executables)").pack(anchor=tk.W, pady=(6, 0))
+        self.node_list = tk.Listbox(lists, height=6, exportselection=False)
+        self.node_list.pack(fill=tk.BOTH, expand=True)
+        self.executables = []
 
         right = ttk.Frame(mid)
         right.pack(fill=tk.Y, side=tk.LEFT, padx=8)
@@ -136,7 +143,9 @@ class RvizLaunchGUI(tk.Tk):
         self.args_entry = ttk.Entry(right, width=30)
         self.args_entry.pack(pady=4)
 
-        ttk.Button(right, text="Launch", command=self.launch_selected).pack(fill=tk.X, pady=4)
+        ttk.Button(right, text="Launch selected launch file", command=self.launch_selected).pack(fill=tk.X, pady=4)
+        ttk.Button(right, text="Run selected node", command=self.run_selected_node).pack(fill=tk.X, pady=(0, 4))
+        ttk.Button(right, text="Open RViz", command=self.open_rviz).pack(fill=tk.X, pady=(0, 4))
         ttk.Button(right, text="Kill Selected", command=self.kill_selected_process).pack(fill=tk.X)
 
         ttk.Label(right, text="Running processes").pack(anchor=tk.W, pady=(8, 2))
@@ -153,24 +162,6 @@ class RvizLaunchGUI(tk.Tk):
         self.refresh_packages()
         self._refresh_preset_combo()
     
-    def _open_joint_controller(self):
-        """Open a slider-based window for publishing joint-group commands."""
-        try:
-            topic = "/commands/joint_group"
-            if self.arm_type and self.arm_type != "master":
-                topic = f"/{self.arm_type}/commands/joint_group"
-
-            joint_window = JointCommandWindow(
-                self.root,
-                topic=topic,
-                joint_names=[f"joint_{i + 1}" for i in range(6)],
-                joint_count=6,
-                group_name=self.arm_type or "arm",
-            )
-            joint_window.grab_set()
-        except Exception as exc:
-            messagebox.showerror("Joint Controller", f"Failed to open joint controller:\n{exc}")
-
     def refresh_packages(self):
         self.packages = get_ros2_packages()
         self.pkg_combo['values'] = self.packages
@@ -192,6 +183,10 @@ class RvizLaunchGUI(tk.Tk):
         self.launch_list.delete(0, tk.END)
         for name, path in self.launch_files:
             self.launch_list.insert(tk.END, name)
+        self.executables = list_executables(pkg)
+        self.node_list.delete(0, tk.END)
+        for exe in self.executables:
+            self.node_list.insert(tk.END, exe)
 
     def refresh_launches(self):
         self.pkg_selected()
@@ -329,6 +324,49 @@ class RvizLaunchGUI(tk.Tk):
         t = threading.Thread(target=run, daemon=True)
         t.start()
 
+    def _start(self, name: str, cmd: list, env: dict):
+        self.append_output(f"Running: {' '.join(cmd)}")
+
+        def run():
+            try:
+                proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                proc_info = {'name': name, 'proc': proc}
+                self.processes.append(proc_info)
+                self._refresh_processes()
+                self._monitor_process(proc_info)
+            except Exception as e:
+                self.append_output(f"Start failed: {e}")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def run_selected_node(self):
+        sel = self.node_list.curselection()
+        if not sel:
+            messagebox.showwarning("No node", "Select a node (executable) to run.")
+            return
+        pkg, exe = self.pkg_var.get(), self.executables[sel[0]]
+        extra = self.args_entry.get().strip()
+        valid, invalid = validate_extra_args(extra)
+        if not valid:
+            messagebox.showerror("Invalid args", f"Invalid argument tokens: {invalid}")
+            return
+        workspace_path = self.workspace_entry.get().strip() or self._default_workspace_path()
+        try:
+            cmd = build_ros2_run_command(pkg, exe, extra, workspace_path)
+            env = self._get_workspace_environment(workspace_path)
+        except FileNotFoundError as exc:
+            messagebox.showwarning("Workspace setup", str(exc))
+            return
+        self._start(f"{pkg}/{exe}", cmd, env)
+
+    def open_rviz(self):
+        workspace_path = self.workspace_entry.get().strip() or self._default_workspace_path()
+        try:
+            env = self._get_workspace_environment(workspace_path)
+        except FileNotFoundError:
+            env = prepare_rviz_environment()
+        self._start("rviz2", ["rviz2"], env)
+
     def kill_selected_process(self):
         selection = self.process_listbox.curselection()
         if not selection:
@@ -351,9 +389,6 @@ class RvizLaunchGUI(tk.Tk):
             messagebox.showinfo("Process ended", "The selected process has already exited.")
 
     def _go_back(self):
-        self.destroy()
-
-    def _go_home(self):
         self.destroy()
 
     def save_current_preset(self):

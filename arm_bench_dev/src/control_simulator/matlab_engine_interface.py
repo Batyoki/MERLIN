@@ -4,6 +4,7 @@ Handles MATLAB engine startup, control algorithm execution, and result retrieval
 """
 
 import importlib
+import sys
 import numpy as np
 import json
 import os

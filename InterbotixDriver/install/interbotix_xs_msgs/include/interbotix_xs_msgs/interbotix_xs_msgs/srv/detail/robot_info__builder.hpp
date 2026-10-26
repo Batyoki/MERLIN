@@ -1,1 +1,0 @@
-/home/yash_sai/Yash/Arm/InterbotixDriver/build/interbotix_xs_msgs/rosidl_generator_cpp/interbotix_xs_msgs/srv/detail/robot_info__builder.hpp

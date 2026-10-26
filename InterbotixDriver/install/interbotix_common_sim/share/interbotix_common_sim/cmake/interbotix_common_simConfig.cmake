@@ -1,1 +1,0 @@
-/home/yash_sai/Yash/Arm/InterbotixDriver/build/interbotix_common_sim/ament_cmake_core/interbotix_common_simConfig.cmake

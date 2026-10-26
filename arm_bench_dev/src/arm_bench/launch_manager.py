@@ -101,3 +101,35 @@ def build_ros2_launch_command(
         f"{shlex.join(cmd)}"
     )
     return ["bash", "-lc", shell_script]
+
+
+def list_executables(package: str) -> List[str]:
+    """Executables of a package (``ros2 pkg executables``); empty if ROS is not sourced."""
+    if not package:
+        return []
+    try:
+        out = subprocess.run(["ros2", "pkg", "executables", package], capture_output=True,
+                             text=True, timeout=10).stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    return [line.split()[1] for line in out.splitlines() if len(line.split()) == 2]
+
+
+def build_ros2_run_command(
+    package: str,
+    executable: str,
+    extra_args: str = "",
+    workspace_path: Optional[str] = None,
+) -> List[str]:
+    """``ros2 run <package> <executable> [--ros-args ...]``, sourcing the workspace if given."""
+    cmd = ["ros2", "run", package, executable]
+    if extra_args:
+        cmd.extend(extra_args.split())
+    if not workspace_path:
+        return cmd
+    setup_script = os.path.join(os.path.abspath(workspace_path), "install", "setup.bash")
+    if not os.path.isfile(setup_script):
+        raise FileNotFoundError(f"Workspace setup script not found: {setup_script}")
+    return ["bash", "-lc",
+            "source /opt/ros/$ROS_DISTRO/setup.bash 2>/dev/null || true; "
+            f"source {shlex.quote(setup_script)}; {shlex.join(cmd)}"]
