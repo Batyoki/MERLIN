@@ -1,0 +1,14 @@
+package.xml
+setup.py
+../../build/data_collection_pkg/data_collection_pkg.egg-info/PKG-INFO
+../../build/data_collection_pkg/data_collection_pkg.egg-info/SOURCES.txt
+../../build/data_collection_pkg/data_collection_pkg.egg-info/dependency_links.txt
+../../build/data_collection_pkg/data_collection_pkg.egg-info/entry_points.txt
+../../build/data_collection_pkg/data_collection_pkg.egg-info/requires.txt
+../../build/data_collection_pkg/data_collection_pkg.egg-info/top_level.txt
+../../build/data_collection_pkg/data_collection_pkg.egg-info/zip-safe
+launch/calibrate_apriltag.launch.py
+launch/session_record.launch.py
+launch/usb_camera.launch.py
+launch/writer_schema.launch.py
+resource/data_collection_pkg

@@ -1,0 +1,24 @@
+[1.768s] Invoking command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/teleoperation_hopefully': PS1=\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/teleoperation_hopefully build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/install.log --single-version-externally-managed install_data
+[2.279s] running egg_info
+[2.318s] writing ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/PKG-INFO
+[2.318s] writing dependency_links to ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/dependency_links.txt
+[2.319s] writing entry points to ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/entry_points.txt
+[2.319s] writing requirements to ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/requires.txt
+[2.320s] writing top-level names to ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/top_level.txt
+[2.406s] reading manifest file '../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/SOURCES.txt'
+[2.408s] writing manifest file '../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info/SOURCES.txt'
+[2.409s] running build
+[2.409s] running build_py
+[2.410s] running install
+[2.416s] running install_lib
+[2.461s] running install_data
+[2.465s] running install_egg_info
+[2.500s] removing '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/python3.10/site-packages/teleoperation_hopefully-0.0.0-py3.10.egg-info' (and everything under it)
+[2.502s] Copying ../../build/teleoperation_hopefully/teleoperation_hopefully.egg-info to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/python3.10/site-packages/teleoperation_hopefully-0.0.0-py3.10.egg-info
+[2.504s] running install_scripts
+[2.570s] Installing diff_ik_vx300s_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/teleoperation_hopefully
+[2.571s] Installing moveit2_ik_vx300s_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/teleoperation_hopefully
+[2.572s] Installing rx150_fk_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/teleoperation_hopefully
+[2.572s] Installing vx300s_ik_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/teleoperation_hopefully
+[2.572s] writing list of installed files to '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/install.log'
+[2.623s] Invoked command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/teleoperation_hopefully' returned '0': PS1=\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/teleoperation_hopefully/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/teleoperation_hopefully build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/teleoperation_hopefully/install.log --single-version-externally-managed install_data

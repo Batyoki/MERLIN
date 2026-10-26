@@ -1,0 +1,58 @@
+[2.042s] Invoking command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/controller': PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/controller build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/install.log --single-version-externally-managed install_data
+[2.525s] running egg_info
+[2.551s] creating ../../build/controller/controller.egg-info
+[2.551s] writing ../../build/controller/controller.egg-info/PKG-INFO
+[2.552s] writing dependency_links to ../../build/controller/controller.egg-info/dependency_links.txt
+[2.552s] writing entry points to ../../build/controller/controller.egg-info/entry_points.txt
+[2.552s] writing requirements to ../../build/controller/controller.egg-info/requires.txt
+[2.553s] writing top-level names to ../../build/controller/controller.egg-info/top_level.txt
+[2.553s] writing manifest file '../../build/controller/controller.egg-info/SOURCES.txt'
+[2.615s] reading manifest file '../../build/controller/controller.egg-info/SOURCES.txt'
+[2.616s] writing manifest file '../../build/controller/controller.egg-info/SOURCES.txt'
+[2.616s] running build
+[2.616s] running build_py
+[2.616s] creating /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.616s] copying controller/master_state_node.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.616s] copying controller/slave_state_node.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.617s] copying controller/misa_mpc_controller.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.617s] copying controller/__init__.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.617s] copying controller/mpc_optimizer.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.617s] copying controller/arm_interface.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.618s] copying controller/controller.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller
+[2.618s] running install
+[2.623s] running install_lib
+[2.650s] creating /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.650s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/master_state_node.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.650s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/slave_state_node.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.650s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/misa_mpc_controller.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.651s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/__init__.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.651s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/mpc_optimizer.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.651s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/arm_interface.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.651s] copying /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build/lib/controller/controller.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller
+[2.652s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/master_state_node.py to master_state_node.cpython-310.pyc
+[2.655s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/slave_state_node.py to slave_state_node.cpython-310.pyc
+[2.656s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/misa_mpc_controller.py to misa_mpc_controller.cpython-310.pyc
+[2.658s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/__init__.py to __init__.cpython-310.pyc
+[2.660s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/mpc_optimizer.py to mpc_optimizer.cpython-310.pyc
+[2.660s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/arm_interface.py to arm_interface.cpython-310.pyc
+[2.661s] byte-compiling /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller/controller.py to controller.cpython-310.pyc
+[2.667s] running install_data
+[2.667s] creating /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/ament_index/resource_index/packages
+[2.668s] copying resource/controller -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/ament_index/resource_index/packages
+[2.668s] copying package.xml -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller
+[2.668s] creating /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller/launch
+[2.668s] copying launch/sim_master_real_slave.launch.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller/launch
+[2.668s] copying launch/sim_master_only.launch.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller/launch
+[2.668s] copying launch/sim_master_keyboard.launch.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller/launch
+[2.669s] copying launch/controller_misa.launch.py -> /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/share/controller/launch
+[2.669s] running install_egg_info
+[2.700s] Copying ../../build/controller/controller.egg-info to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages/controller-0.0.0-py3.10.egg-info
+[2.701s] running install_scripts
+[2.765s] Installing controller script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.765s] Installing joystick_teleop script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.765s] Installing keyboard_teleop script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.765s] Installing master_state_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.766s] Installing simulated_master script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.766s] Installing slave_state_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/controller
+[2.766s] writing list of installed files to '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/install.log'
+[2.802s] Invoked command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/controller' returned '0': PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/controller build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/controller/install.log --single-version-externally-managed install_data

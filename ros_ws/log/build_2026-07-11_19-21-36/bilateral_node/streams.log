@@ -1,0 +1,24 @@
+[1.674s] Invoking command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/bilateral_node': PS1=\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/bilateral_node build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/install.log --single-version-externally-managed install_data
+[2.180s] running egg_info
+[2.213s] writing ../../build/bilateral_node/bilateral_node.egg-info/PKG-INFO
+[2.214s] writing dependency_links to ../../build/bilateral_node/bilateral_node.egg-info/dependency_links.txt
+[2.215s] writing entry points to ../../build/bilateral_node/bilateral_node.egg-info/entry_points.txt
+[2.215s] writing requirements to ../../build/bilateral_node/bilateral_node.egg-info/requires.txt
+[2.215s] writing top-level names to ../../build/bilateral_node/bilateral_node.egg-info/top_level.txt
+[2.300s] reading manifest file '../../build/bilateral_node/bilateral_node.egg-info/SOURCES.txt'
+[2.300s] writing manifest file '../../build/bilateral_node/bilateral_node.egg-info/SOURCES.txt'
+[2.300s] running build
+[2.300s] running build_py
+[2.300s] running install
+[2.306s] running install_lib
+[2.344s] running install_data
+[2.344s] running install_egg_info
+[2.382s] removing '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/python3.10/site-packages/bilateral_node-0.0.0-py3.10.egg-info' (and everything under it)
+[2.384s] Copying ../../build/bilateral_node/bilateral_node.egg-info to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/python3.10/site-packages/bilateral_node-0.0.0-py3.10.egg-info
+[2.389s] running install_scripts
+[2.461s] Installing bilateralKinematics script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/bilateral_node
+[2.462s] Installing bilateralKinematicsPink script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/bilateral_node
+[2.462s] Installing bilateral_basics script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/bilateral_node
+[2.462s] Installing bilateral_node script to /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/bilateral_node
+[2.462s] writing list of installed files to '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/install.log'
+[2.499s] Invoked command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/bilateral_node' returned '0': PS1=\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/bilateral_node/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/bilateral_node build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/bilateral_node/install.log --single-version-externally-managed install_data

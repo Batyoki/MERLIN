@@ -1,0 +1,7 @@
+[console_scripts]
+controller = controller.controller:main
+joystick_teleop = controller.joystick_teleop_node:main
+keyboard_teleop = controller.keyboard_teleop_node:main
+master_state_node = controller.master_state_node:main
+simulated_master = controller.simulated_master_node:main
+slave_state_node = controller.slave_state_node:main

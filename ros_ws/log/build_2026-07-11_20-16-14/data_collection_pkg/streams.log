@@ -1,0 +1,16 @@
+[2.007s] Invoking command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/data_collection_pkg': PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/data_collection_pkg/lib/python3.10/site-packages:${PYTHONPATH} VIRTUAL_ENV_PROMPT=(arm-test) /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/data_collection_pkg build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/install.log --single-version-externally-managed install_data
+[2.284s] /home/sp/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+[2.284s]   warnings.warn(msg)
+[2.503s] running egg_info
+[2.541s] writing ../../build/data_collection_pkg/data_collection_pkg.egg-info/PKG-INFO
+[2.541s] writing dependency_links to ../../build/data_collection_pkg/data_collection_pkg.egg-info/dependency_links.txt
+[2.541s] writing entry points to ../../build/data_collection_pkg/data_collection_pkg.egg-info/entry_points.txt
+[2.542s] writing requirements to ../../build/data_collection_pkg/data_collection_pkg.egg-info/requires.txt
+[2.542s] writing top-level names to ../../build/data_collection_pkg/data_collection_pkg.egg-info/top_level.txt
+[2.580s] reading manifest file '../../build/data_collection_pkg/data_collection_pkg.egg-info/SOURCES.txt'
+[2.584s] writing manifest file '../../build/data_collection_pkg/data_collection_pkg.egg-info/SOURCES.txt'
+[2.584s] running build
+[2.584s] running install
+[2.592s] running install_data
+[2.592s] error: can't copy 'resource/data_collection_pkg': doesn't exist or not a regular file
+[2.630s] Invoked command in '/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/src/data_collection_pkg' returned '1': PYTHONPATH=/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/install/data_collection_pkg/lib/python3.10/site-packages:${PYTHONPATH} VIRTUAL_ENV_PROMPT=(arm-test) /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/data_collection_pkg build --build-base /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/build install --record /home/sp/Desktop/5th_Semester/RnD/repo/ArmBench-Control_TestBed_for_Robotic_Arms/ros_ws/build/data_collection_pkg/install.log --single-version-externally-managed install_data
