@@ -1,25 +1,61 @@
-from launch import LaunchDescription
-from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
+"""
+Bilateral teleoperation launch.
+
+  ros2 launch controller controller_misa.launch.py                     # controller only
+  ros2 launch controller controller_misa.launch.py launch_drivers:=true  # + both arms
+  ros2 launch controller controller_misa.launch.py control_mode:=pp log_dir:=/tmp/merlin
+
+With launch_drivers:=true the RX200 master is started in current mode and the
+VX300s slave in position mode (config/modes_master.yaml, modes_slave.yaml).
+"""
+
 import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    share = get_package_share_directory("controller")
+    config = os.path.join(share, "config", "controller.yaml")
 
-    config_file = os.path.join(
-        get_package_share_directory('controller'),  # your package name
-        'config',
-        'controllers.yaml'                          # your config file
+    args = [
+        DeclareLaunchArgument("launch_drivers", default_value="false"),
+        DeclareLaunchArgument("control_mode", default_value="misa"),
+        DeclareLaunchArgument("log_dir", default_value=""),
+        DeclareLaunchArgument("master_name", default_value="masterR"),
+        DeclareLaunchArgument("slave_name", default_value="slaveR"),
+    ]
+
+    drivers = []
+    try:
+        xsarm = os.path.join(get_package_share_directory("interbotix_xsarm_control"),
+                             "launch", "xsarm_control.launch.py")
+        for model, name, modes in (("rx200", "master_name", "modes_master.yaml"),
+                                   ("vx300s", "slave_name", "modes_slave.yaml")):
+            drivers.append(IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(xsarm),
+                launch_arguments={
+                    "robot_model": model,
+                    "robot_name": LaunchConfiguration(name),
+                    "mode_configs": os.path.join(share, "config", modes),
+                    "use_rviz": "false",
+                }.items(),
+                condition=IfCondition(LaunchConfiguration("launch_drivers"))))
+    except Exception:
+        pass   # interbotix_xsarm_control not installed: controller-only launch still works
+
+    controller = Node(
+        package="controller",
+        executable="controller",
+        name="controller",                 # must match the YAML root key
+        parameters=[config, {"control_mode": LaunchConfiguration("control_mode"),
+                             "log_dir": LaunchConfiguration("log_dir")}],
+        output="screen",
     )
-
-    controller_node = Node(
-        package='controller',        # package name
-        executable='controller',    # entry point (from setup.py)
-        name='controller',          # 👈 MUST match YAML root key
-        parameters=[config_file],   # 👈 load YAML
-        output='screen'
-    )
-
-    return LaunchDescription([
-        controller_node
-    ])
+    return LaunchDescription(args + drivers + [controller])

@@ -1,233 +1,186 @@
 """
 mpc_optimizer.py
 ----------------
-MPC (Model Predictive Control) optimizer for bilateral teleoperation.
+Constrained MPC for the POSITION-CONTROLLED slave (paper Eq. 7, corrected).
 
-The MPC problem is formulated as a finite-horizon quadratic program:
+Why the old formulation did nothing
+-----------------------------------
+The previous optimizer had decision variables [dq_0..dq_{N-1}, τ_0..τ_{N-1}]
+but the rollout used only τ; dq appeared only in the cost term dqᵀ R dq.
+Its optimum is therefore dq* = 0 for any reference, and dq*_0 was exactly
+what the slave integrated. Slave motion came entirely from the leaky
+integrator q ← 0.95 q + 0.05 q_ref (a 0.39 s first-order lag at 50 Hz),
+which explains the 0.36 rad RMSE and the "delays at direction changes".
+It also solved a torque problem for an arm that only accepts position
+commands, so no torque was ever applied.
 
-    min  sum_{k=0}^{N-1} [ (q_k - q_ref)^T Q (q_k - q_ref)
-                           + (dq_k)^T R (dq_k)
-                           + (tau_k)^T S (tau_k) ]
-         + (q_N - q_ref)^T P (q_N - q_ref)
+Formulation used here
+---------------------
+Each slave joint i, under its Dynamixel position loop, is modelled (and
+identified, tools/identify_position_loop.py) as
 
-    s.t. q_{k+1} = q_k + dt * dq_k          (Euler kinematics)
-         dq_{k+1} = dq_k + dt * M^{-1}(tau_k - C - G - tau_ext)
-         q_min  <= q_k  <= q_max
-         dq_min <= dq_k <= dq_max
-         tau_min<= tau_k<= tau_max
+    q̈ = ω_i² (u − q) − 2 ζ_i ω_i q̇              u = position command
 
-The optimizer is used for BOTH master and slave arms, but with
-different reference signals and objective weights:
-  - Master: tracks operator intent, renders feedback torques
-  - Slave:  tracks master joint angles, complies with environment forces
+ZOH-discretised at Δt:  x[k+1] = A_i x[k] + B_i u[k],  x = [q, q̇].
 
+    min_{u_0..u_{N-1}}  Σ_{k=1}^{N-1} Q (q_k − r_k)² + P (q_N − r_N)²
+                        + R Σ_{k=0}^{N-1} (u_k − u_{k-1})²
+    s.t.  q_min ≤ u_k ≤ q_max
+          |u_k − u_{k-1}| ≤ Δu_max
+          |q̇_k| ≤ q̇_max                (predicted)
+          x_0 = measured state, u_{-1} = last applied command
+
+Offset-free: the xs_sdk position loop has no gravity feed-forward, so each
+joint settles at u − G/K_p (static sag), which the linear model cannot
+predict. The MPC therefore runs the model in parallel (internal-model form)
+and estimates an output disturbance d̂ = LPF(q_meas − q̂_model); predictions
+are q̂ + d̂. Without this the "MPC" tracked worse than sending q_ref directly.
+
+r_k is the admittance reference q_s,ref previewed with the master velocity
+(r_k = r_0 + k Δt q̇_m), which lets the MPC cancel the position-loop lag.
+Joints are decoupled (diagonal model), so the problem is n small QPs, each
+condensed to N variables and solved with a fixed-iteration ADMM (OSQP
+scheme). The KKT matrix is constant and factorised once, so a solve is a few
+hundred 10×10 mat-vecs (< 1 ms), which fits the 20 ms budget easily.
+Only u*_0 is applied (receding horizon).
 """
 
+import time
+from typing import Optional
+
 import numpy as np
-from scipy.optimize import minimize
-from typing import Tuple, Optional
-import pinocchio as pin
+from scipy.linalg import expm
 
 
-class MPCOptimizer:
-    """
-    Finite-horizon MPC optimizer using scipy's SQP solver.
+def discretize_position_loop(omega: float, zeta: float, dt: float):
+    A = np.array([[0.0, 1.0], [-omega ** 2, -2.0 * zeta * omega]])
+    B = np.array([0.0, omega ** 2])
+    aug = np.zeros((3, 3))
+    aug[:2, :2] = A
+    aug[:2, 2] = B
+    E = expm(aug * dt)
+    return E[:2, :2], E[:2, 2]
 
-    For real-time deployment consider replacing scipy with a dedicated
-    QP solver such as OSQP or quadprog for lower latency.
-    """
 
-    def __init__(
-        self,
-        n_joints: int,
-        horizon: int,
-        dt: float,
-        Q: np.ndarray,   # State tracking weight  [n x n]
-        R: np.ndarray,   # Control effort weight  [n x n]
-        S: np.ndarray,   # Torque magnitude weight[n x n]
-        P: np.ndarray,   # Terminal state weight  [n x n]
-        q_min: np.ndarray,
-        q_max: np.ndarray,
-        dq_min: np.ndarray,
-        dq_max: np.ndarray,
-        tau_min: np.ndarray,
-        tau_max: np.ndarray,
-    ):
-        self.n = n_joints
-        self.N = horizon
+class PositionMPC:
+    def __init__(self, omega, zeta, dt: float, horizon: int,
+                 q_min, q_max, dq_max, du_max,
+                 Q: float = 100.0, P: float = 300.0, R: float = 1.0,
+                 rho: float = 10.0, sigma: float = 1e-6, iters: int = 60,
+                 dist_alpha: float = 0.2):
+        self.n = len(omega)
+        self.N = N = horizon
         self.dt = dt
-        self.Q = Q
-        self.R = R
-        self.S = S
-        self.P = P
-        self.q_min = q_min
-        self.q_max = q_max
-        self.dq_min = dq_min
-        self.dq_max = dq_max
-        self.tau_min = tau_min
-        self.tau_max = tau_max
+        self.q_min, self.q_max = np.asarray(q_min, float), np.asarray(q_max, float)
+        self.dq_max = np.asarray(dq_max, float)
+        self.du_max = np.asarray(du_max, float)
+        self.rho, self.iters = rho, iters
+        self.dist_alpha = dist_alpha
+        self.A = np.zeros((self.n, 2, 2))
+        self.B = np.zeros((self.n, 2))
 
-        # SANITY CHECK ASSERTIONS
-        for name, arr in [("Q", Q), ("R", R), ("S", S), ("P", P)]:
-            assert arr.shape == (n_joints, n_joints), \
-                f"Weight matrix {name} shape {arr.shape} != ({n_joints},{n_joints})"
-        for name, arr in [("q_min", q_min), ("q_max", q_max),
-                        ("dq_min", dq_min), ("dq_max", dq_max),
-                        ("tau_min", tau_min), ("tau_max", tau_max)]:
-            assert arr.shape == (n_joints,), \
-                f"Limit array {name} shape {arr.shape} != ({n_joints},)"
+        w = np.full(N, Q, dtype=float)
+        w[-1] = P
+        D = np.eye(N) - np.eye(N, k=-1)            # (D u)_k = u_k − u_{k-1}
 
-        # Decision variable size: [dq_increments(N*n), tau_commands(N*n)]
-        self._n_dec = 2 * self.N * self.n
+        self.Phi_q = np.zeros((self.n, N, 2))
+        self.Phi_v = np.zeros((self.n, N, 2))
+        self.G_q = np.zeros((self.n, N, N))
+        self.G_v = np.zeros((self.n, N, N))
+        self.H = np.zeros((self.n, N, N))
+        self.C = np.zeros((self.n, 3 * N, N))
+        self.Kinv = np.zeros((self.n, N, N))
+        for i in range(self.n):
+            A, B = discretize_position_loop(omega[i], zeta[i], dt)
+            self.A[i], self.B[i] = A, B
+            Ak = np.eye(2)
+            powers = []
+            for k in range(N):
+                Ak = A @ Ak
+                powers.append(Ak.copy())                  # A^{k+1}
+            for k in range(N):
+                self.Phi_q[i, k] = powers[k][0]
+                self.Phi_v[i, k] = powers[k][1]
+                for j in range(k + 1):
+                    Akj = np.eye(2) if k == j else powers[k - j - 1]
+                    col = Akj @ B
+                    self.G_q[i, k, j] = col[0]
+                    self.G_v[i, k, j] = col[1]
+            Gq = self.G_q[i]
+            self.H[i] = 2.0 * (Gq.T @ np.diag(w) @ Gq + R * D.T @ D)
+            self.C[i] = np.vstack([np.eye(N), D, self.G_v[i]])
+            K = self.H[i] + sigma * np.eye(N) + rho * self.C[i].T @ self.C[i]
+            self.Kinv[i] = np.linalg.inv(K)
+        self.w, self.D, self.R, self.sigma = w, D, R, sigma
 
-        # Warm-start storage
-        self._last_solution: Optional[np.ndarray] = None
+        self._xhat = None       # parallel model state (n, 2)
+        self.d_hat = np.zeros(self.n)
+        self._u = None          # warm start (n, N)
+        self._z = None
+        self._y = None
+        self.last_solve_ms = 0.0
 
+    def reset(self):
+        self._u = self._z = self._y = self._xhat = None
+        self.d_hat[:] = 0.0
 
-        
-
-    def _build_bounds(self):
-        """Build scipy bounds for the decision variables."""
-        lb_dq  = np.tile(self.dq_min,  self.N)
-        ub_dq  = np.tile(self.dq_max,  self.N)
-        lb_tau = np.tile(self.tau_min, self.N)
-        ub_tau = np.tile(self.tau_max, self.N)
-        lb = np.concatenate([lb_dq, lb_tau])
-        ub = np.concatenate([ub_dq, ub_tau])
-        return list(zip(lb, ub))
-
-    def _rollout(
-        self,
-        x0: np.ndarray,          # [q0; dq0]
-        dec_vars: np.ndarray,    # flattened [dq_inc; tau]
-        M_inv: np.ndarray,       # M^{-1}
-        C: np.ndarray,           # Coriolis vector
-        G: np.ndarray,           # Gravity vector
-        tau_ext: np.ndarray,     # External / feedback torque
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def solve(self, q: np.ndarray, dq: np.ndarray, r: np.ndarray,
+              u_prev: np.ndarray) -> np.ndarray:
         """
-        Roll out the joint-space dynamics over the MPC horizon.
-
-        Returns
-        -------
-        qs  : (N+1, n) joint position trajectory
-        dqs : (N+1, n) joint velocity trajectory
+        q, dq   : measured slave joint state (n,)
+        r       : reference preview (N, n), r[k] is the target at step k+1
+        u_prev  : last applied position command (n,)
+        returns : u*_0 (n,)
         """
-        dq_seq  = dec_vars[: self.N * self.n].reshape(self.N, self.n)
-        tau_seq = dec_vars[self.N * self.n :].reshape(self.N, self.n)
+        t0 = time.perf_counter()
+        N = self.N
+        if self._u is None:
+            self._u = np.tile(u_prev[:, None], (1, N))
+            self._z = np.einsum("imn,in->im", self.C, self._u)
+            self._y = np.zeros((self.n, 3 * N))
+        else:   # shift warm start by one step
+            self._u = np.concatenate([self._u[:, 1:], self._u[:, -1:]], axis=1)
 
-        qs  = np.zeros((self.N + 1, self.n))
-        dqs = np.zeros((self.N + 1, self.n))
-        qs[0]  = x0[: self.n]
-        dqs[0] = x0[self.n :]
+        if self._xhat is None:
+            self._xhat = np.stack([q, dq], axis=1)
+        self.d_hat += self.dist_alpha * ((q - self._xhat[:, 0]) - self.d_hat)
+        x0 = self._xhat                                        # (n, 2)
+        free_q = np.einsum("ikj,ij->ik", self.Phi_q, x0) + self.d_hat[:, None]   # (n, N)
+        free_v = np.einsum("ikj,ij->ik", self.Phi_v, x0)
+        d = np.zeros((self.n, N))
+        d[:, 0] = u_prev
+        f = (2.0 * np.einsum("ikj,ik->ij", self.G_q, self.w * (free_q - r.T))
+             - 2.0 * self.R * d @ self.D)                      # (n, N)
 
-        for k in range(self.N):
-            # Joint-space Newton-Euler dynamics (linearised, Euler step):
-            #   M ddq + C + G = tau + tau_ext
-            #   ddq = M^{-1}(tau_k - C - G + tau_ext)
-            # -------------------------------------------------------
-            # NOTE: C and G here are evaluated at the current step's
-            # q/dq.  For higher fidelity, recompute them at each step
-            # using your robot's dynamic model (see arm_interface.py).
-            # -------------------------------------------------------
-            ddq = M_inv @ (tau_seq[k] - C - G + tau_ext)
-            # dqs[k + 1] = dqs[k] + self.dt * ddq
-            # qs[k + 1]  = qs[k]  + self.dt * dqs[k] + 0.5 * self.dt**2 * ddq
+        lo = np.concatenate([
+            np.tile(self.q_min[:, None], (1, N)),
+            d - self.du_max[:, None],
+            -self.dq_max[:, None] - free_v], axis=1)
+        hi = np.concatenate([
+            np.tile(self.q_max[:, None], (1, N)),
+            d + self.du_max[:, None],
+            self.dq_max[:, None] - free_v], axis=1)
 
-            if not np.all(np.isfinite(ddq)) or np.any(np.abs(ddq) > 1e4):
-            # Signal infeasibility by returning current state repeated
-                qs[k+1:]  = qs[k]
-                dqs[k+1:] = 0.0
-                break
+        u, z, y, rho = self._u, np.clip(self._z, lo, hi), self._y, self.rho
+        for _ in range(self.iters):
+            rhs = self.sigma * u - f + np.einsum("imn,im->in", self.C, rho * z - y)
+            u = np.einsum("inm,im->in", self.Kinv, rhs)
+            Cu = np.einsum("imn,in->im", self.C, u)
+            z = np.clip(Cu + y / rho, lo, hi)
+            y = y + rho * (Cu - z)
+        self._u, self._z, self._y = u, z, y
 
-            dqs[k + 1] = dqs[k] + self.dt * ddq
-            qs[k + 1]  = qs[k]  + self.dt * dqs[k] + 0.5 * self.dt**2 * ddq
+        u0 = np.clip(u[:, 0], self.q_min, self.q_max)
+        u0 = np.clip(u0, u_prev - self.du_max, u_prev + self.du_max)
+        self._xhat = np.einsum("ijk,ik->ij", self.A, self._xhat) + self.B * u0[:, None]
+        self.last_solve_ms = (time.perf_counter() - t0) * 1e3
+        return u0
 
-        return qs, dqs
 
-    def _objective(
-        self,
-        dec_vars: np.ndarray,
-        x0: np.ndarray,
-        q_ref: np.ndarray,
-        M_inv: np.ndarray,
-        C: np.ndarray,
-        G: np.ndarray,
-        tau_ext: np.ndarray,
-    ) -> float:
-        dq_seq  = dec_vars[: self.N * self.n].reshape(self.N, self.n)
-        tau_seq = dec_vars[self.N * self.n :].reshape(self.N, self.n)
-
-        qs, _ = self._rollout(x0, dec_vars, M_inv, C, G, tau_ext)
-
-        cost = 0.0
-        for k in range(self.N):
-            eq = qs[k] - q_ref
-            if not np.all(np.isfinite(eq)):
-                return 1e10
-            cost += eq @ self.Q @ eq
-            cost += dq_seq[k] @ self.R @ dq_seq[k]
-            cost += tau_seq[k] @ self.S @ tau_seq[k]
-
-        # Terminal cost
-        eq_N = qs[self.N] - q_ref
-        cost += eq_N @ self.P @ eq_N
-        return cost
-
-    def solve(
-        self,
-        q_current: np.ndarray,   # Current joint positions (n,)
-        dq_current: np.ndarray,  # Current joint velocities (n,)
-        q_ref: np.ndarray,       # Reference joint positions (n,)
-        M: np.ndarray,           # Mass matrix  (n x n)
-        C: np.ndarray,           # Coriolis vector (n,)
-        G: np.ndarray,           # Gravity vector  (n,)
-        tau_ext: np.ndarray,     # External torque (feedback) (n,)
-    ) -> Tuple[np.ndarray, np.ndarray, bool]:
-        """
-        Run one MPC solve step.
-
-        Returns
-        -------
-        tau_cmd : (n,) optimal torque command for the first step
-        dq_cmd  : (n,) optimal velocity increment for the first step
-        success : bool
-        """
-        M_inv = np.linalg.pinv(M)   # Use pinv for numerical safety
-        x0 = np.concatenate([q_current, dq_current])
-
-        # Warm-start: shift previous solution by one step; zero-pad tail
-        if self._last_solution is not None:
-            n = self.n
-            N = self.N
-            dq_prev = self._last_solution[: N * n].reshape(N, n)
-            tau_prev = self._last_solution[N * n :].reshape(N, n)
-            dq_warm  = np.vstack([dq_prev[1:],  np.zeros((1, n))])
-            tau_warm = np.vstack([tau_prev[1:], np.zeros((1, n))])
-            x0_opt = np.concatenate([dq_warm.ravel(), tau_warm.ravel()])
-        else:
-            x0_opt = np.zeros(self._n_dec)
-
-        bounds = self._build_bounds()
-
-        result = minimize(
-            self._objective,
-            x0_opt,
-            args=(x0, q_ref, M_inv, C, G, tau_ext),
-            method="SLSQP",
-            bounds=bounds,
-            options={"maxiter": 50, "ftol": 1e-6},
-        )
-
-        success = result.success or result.fun < 1e-3  # accept near-converged
-        if success:
-            self._last_solution = result.x
-
-        tau_cmd = result.x[self.N * self.n :][: self.n]
-        dq_cmd  = result.x[: self.n]
-
-        # Sanitise before returning — NaN in result.x means optimizer diverged
-        if not np.all(np.isfinite(tau_cmd)) or not np.all(np.isfinite(dq_cmd)):
-            return np.zeros(self.n), np.zeros(self.n), False
-        
-        return tau_cmd, dq_cmd, success
+def preview_reference(r0: np.ndarray, r_dot: Optional[np.ndarray], dt: float,
+                      horizon: int) -> np.ndarray:
+    """Constant-velocity preview r_k = r_0 + k Δt ṙ, k = 1..N  -> (N, n)."""
+    k = np.arange(1, horizon + 1)[:, None]
+    if r_dot is None:
+        return np.tile(r0, (horizon, 1))
+    return r0[None, :] + k * dt * r_dot[None, :]

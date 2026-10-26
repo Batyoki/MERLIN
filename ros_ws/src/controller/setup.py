@@ -1,26 +1,30 @@
-from setuptools import find_packages, setup
 import os
+from glob import glob
+
+from setuptools import find_packages, setup
 
 package_name = 'controller'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'),
-            ['launch/sim_master_real_slave.launch.py', 'launch/sim_master_only.launch.py', 'launch/sim_master_keyboard.launch.py',
-             'launch/controller_misa.launch.py']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        # dynamics.resolve_urdf() looks here; replaces the /home/sp/... paths
+        (os.path.join('share', package_name, 'urdf'),
+            ['controller/rx200.urdf', 'controller/vx300s.urdf']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'numpy', 'scipy'],
     zip_safe=True,
     maintainer='sp',
     maintainer_email='cs23bt072@iitdh.ac.in',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='MERLIN bilateral teleoperation controller (MISA + MPC + energy tank)',
+    license='MIT',
     extras_require={
         'test': [
             'pytest',
@@ -29,11 +33,6 @@ setup(
     entry_points={
         'console_scripts': [
             'controller = controller.controller:main',
-            'master_state_node = controller.master_state_node:main',
-            'slave_state_node = controller.slave_state_node:main',
-            'simulated_master = controller.simulated_master_node:main',
-            'joystick_teleop = controller.joystick_teleop_node:main',
-            'keyboard_teleop = controller.keyboard_teleop_node:main',
         ],
     },
 )
