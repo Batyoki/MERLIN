@@ -13,6 +13,11 @@ from typing import Dict, Any, Optional, List, Tuple
 import threading
 import time
 
+try:
+    from .param_parser import parse_control_script
+except ImportError:                                           # imported as a top-level module
+    from param_parser import parse_control_script
+
 matlab = None
 
 
@@ -24,6 +29,10 @@ def extract_parameter_names(law_text: str) -> List[str]:
     """Extract user-defined parameter names from a free-text control law."""
     if not law_text:
         return []
+
+    parsed = parse_control_script(law_text)           # '@param' declarations win over the heuristic
+    if parsed.annotated:
+        return [p.name for p in parsed.params]
 
     tokens = re.findall(r'\b[A-Za-z_][A-Za-z0-9_]*\b', law_text)
     seen = set()
@@ -174,6 +183,12 @@ class MATLABControlSimulator:
             self.is_running = True
             
             try:
+                if control_law_text and str(control_law_text).strip():
+                    parsed = parse_control_script(control_law_text)
+                    if parsed.annotated:
+                        # run the body only: the declared assignments would overwrite tuned values
+                        control_law_text = parsed.body
+                        parameters = {**parsed.defaults(), **(parameters or {})}
                 param_names, matlab_params = self._python_to_matlab(parameters)
 
                 if control_law_text is None or not str(control_law_text).strip():
