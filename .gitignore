@@ -16,3 +16,13 @@ __pycache__/
 
 # Generated experiment logs (keep the committed results/ folders)
 experiments/**/logs/
+
+# Recorded datasets (large; the recorder writes to ~/merlin_datasets by default)
+arm_bench_dataset_*/
+merlin_datasets/
+
+# LaTeX build products
+*.aux
+*.log
+*.out
+*.toc
