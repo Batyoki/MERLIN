@@ -42,6 +42,12 @@ Joints are decoupled (diagonal model), so the problem is n small QPs, each
 condensed to N variables and solved with a fixed-iteration ADMM (OSQP
 scheme). The KKT matrix is constant and factorised once, so a solve is a few
 hundred 10×10 mat-vecs (< 1 ms), which fits the 20 ms budget easily.
+
+ρ matters: with ρ = 10 the 60 fixed iterations were far from the QP optimum (first
+move off by up to 26 mrad cold, 13 mrad warm on average) and the controller
+silently behaved like a different, less regularised design. ρ = 0.3 brings the
+warm-started first move within 0.2 mrad of the exact solution (tests:
+test/test_derivations.py::test_admm_*; docs/EVALUATION_METHODOLOGY.md).
 Only u*_0 is applied (receding horizon).
 """
 
@@ -66,7 +72,7 @@ class PositionMPC:
     def __init__(self, omega, zeta, dt: float, horizon: int,
                  q_min, q_max, dq_max, du_max,
                  Q: float = 100.0, P: float = 300.0, R: float = 1.0,
-                 rho: float = 10.0, sigma: float = 1e-6, iters: int = 60,
+                 rho: float = 0.3, sigma: float = 1e-6, iters: int = 60,
                  dist_alpha: float = 0.2):
         self.n = len(omega)
         self.N = N = horizon

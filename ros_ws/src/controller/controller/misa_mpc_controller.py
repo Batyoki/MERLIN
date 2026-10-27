@@ -79,6 +79,8 @@ class BilateralParams:
     mpc_Q: float = 100.0
     mpc_P: float = 300.0
     mpc_R: float = 0.5
+    mpc_rho: float = 0.3          # ADMM penalty; 0.3 converges to the exact QP in <= 60 iterations (see docs)
+    mpc_iters: int = 60
     # force mapping + passivity
     force_map: str = "jacobian"           # "jacobian" | "identity"
     s_force: float = 1.0
@@ -105,7 +107,7 @@ class BilateralController:
         self.mpc = PositionMPC(
             p.pos_loop_omega, p.pos_loop_zeta, p.dt, p.mpc_horizon,
             q_slave_min, q_slave_max, p.dq_slave_max, p.du_slave_max,
-            Q=p.mpc_Q, P=p.mpc_P, R=p.mpc_R) if p.use_mpc else None
+            Q=p.mpc_Q, P=p.mpc_P, R=p.mpc_R, rho=p.mpc_rho, iters=p.mpc_iters) if p.use_mpc else None
         self._u_prev = None
 
     def reset(self):

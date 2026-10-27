@@ -179,10 +179,11 @@ class BilateralNode(Node):
                      "Msd", "Dsd", "Ksd", "q_e_max", "pos_loop_omega", "pos_loop_zeta",
                      "dq_slave_max", "du_slave_max"):
             P(name, getattr(defaults, name).tolist())
-        for name in ("kof", "kom", "s_force", "mpc_Q", "mpc_P", "mpc_R",
+        for name in ("kof", "kom", "s_force", "mpc_Q", "mpc_P", "mpc_R", "mpc_rho",
                      "tank_T0", "tank_T_min", "tank_T_max"):
             P(name, float(getattr(defaults, name)))
         P("mpc_horizon", defaults.mpc_horizon)
+        P("mpc_iters", defaults.mpc_iters)
         P("use_mpc", True)
         P("use_tank", True)
         P("force_map", "jacobian")
@@ -209,9 +210,9 @@ class BilateralNode(Node):
             **{n: arr(n) for n in ("Dmd", "Kmd", "tau_master_max", "tau_dead_zone", "pp_Kp", "pp_Kd",
                                    "Msd", "Dsd", "Ksd", "q_e_max", "pos_loop_omega", "pos_loop_zeta",
                                    "dq_slave_max", "du_slave_max")},
-            **{n: float(g(n)) for n in ("kof", "kom", "s_force", "mpc_Q", "mpc_P", "mpc_R",
+            **{n: float(g(n)) for n in ("kof", "kom", "s_force", "mpc_Q", "mpc_P", "mpc_R", "mpc_rho",
                                         "tank_T0", "tank_T_min", "tank_T_max")},
-            mpc_horizon=int(g("mpc_horizon")), use_mpc=g("use_mpc"),
+            mpc_horizon=int(g("mpc_horizon")), mpc_iters=int(g("mpc_iters")), use_mpc=g("use_mpc"),
             use_tank=g("use_tank"), force_map=g("force_map"))
 
         self.sides = [Side(self, s, params) for s in g("sides")]

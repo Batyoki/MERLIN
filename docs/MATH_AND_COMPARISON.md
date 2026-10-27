@@ -95,7 +95,7 @@ $$
 $$
 - r_k = q_s,ref + k Δt S q̇_m (velocity preview).
 - d̂ = LPF(q − q̂) is the offset-free disturbance (it absorbs the static gravity sag).
-- N = 10. Solved by ADMM: 0.8 ms mean, < 2 ms max.
+- N = 10. Solved by ADMM (ρ = 0.3, 60 iterations): 0.9 ms mean per tick for five joints; the worst single solve in a 24 s run was ≈ 12 ms (shared CPU, includes OS jitter), still inside the 20 ms period.
 
 ### Eq. 8 — energy tank, new (`passivity.py`)
 $$
@@ -116,9 +116,9 @@ whatever the estimation error or the non-power-preserving Γ. The proof is one l
 
 | # | Contribution | What exists now | Evidence (simulation) | What's still needed for a strong claim |
 |---|---|---|---|---|
-| 2 | Passivity of sensorless force reflection via an energy tank | `passivity.py`, Eq. 8 + proposition | k_of = 1.5 without tank: RMSE 0.188 rad, wall peak 71 N. With tank: 0.031 rad, 39 N. At the default k_of = 0.3 the tank never activates (identical results). | **The single master-side tank doesn't give delay robustness.** At 60 ms with k_of = 0.6 it fails with or without the tank (0.30 rad). Needs a two-port TDPA / energy exchange between master and slave tanks (Artigas 2011; Ferraguti 2015). |
+| 2 | Passivity of sensorless force reflection via an energy tank | `passivity.py`, Eq. 8 + proposition | k_of = 1.5 without tank: RMSE 0.197 rad, wall peak 58 N. With tank: 0.054 rad, 59 N. At the default k_of = 0.3 the tank never activates (identical results). | **The single master-side tank doesn't give delay robustness.** At 60 ms with k_of = 0.6 it fails with or without the tank (0.30 rad). Needs a two-port TDPA / energy exchange between master and slave tanks (Artigas 2011; Ferraguti 2015). |
 | 3 | Force reflection between kinematically different arms, Γ = J_mᵀ S_f (J_sᵀ)⁺ | `force_mapping.py` | At k_of = 0.6: identity map peaks 37 N vs 12 N with the Jacobian map (earlier run). **At k_of = 0.3: no measurable difference** (force corr 0.69 vs 0.76). | A Cartesian task (pushing along a direction that loads joints differently on RX200 vs VX300s) and S_f = position-scale ratio (impedance-transparent). Otherwise claim it as a design choice, not a result. |
-| 4 | Correct constrained, offset-free MPC for a position-controlled slave | `mpc_optimizer.py` | RMSE 0.016 vs 0.026 rad without MPC. Lag **8 ms** vs 20 ms (no MPC) and 32 ms (unilateral/P-P/P-F). Lag-compensated RMSE 0.008. Solve 0.8 ms. | Identify ω, ζ on the real arm. Show the constraint activity (Δu, q̇) in a figure. |
+| 4 | Correct constrained, offset-free MPC for a position-controlled slave | `mpc_optimizer.py` | RMSE 0.011 vs 0.026 rad without MPC. Lag **0 ms** (< 10 ms) vs 20 ms (no MPC) and 32 ms (unilateral/P-P/P-F). Lag-compensated RMSE 0.007. Solve 0.9 ms. | Identify ω, ζ on the real arm. Show the constraint activity (Δu, q̇) in a figure. |
 | 5 | Tank-aware MPC (the passivity constraint inside the QP) | not implemented | — | Would turn #2 + #4 into one formulation. Optional; only if time allows. |
 
 **Answer to "infrastructure, not control" (reviewer):** the contribution becomes:
@@ -144,9 +144,9 @@ All controllers use k_of = 0.3 unless stated.
 | B1 Unilateral (xsarm_puppet) | 0.031 | 0.025 | 0.154 | 32 ms | 0.018 | 0.2 / 13.2 N | −0.40 |
 | B2 Position–position | 0.026 | 0.025 | 0.135 | 32 ms | 0.018 | 0.4 / 8.2 N | 0.39 |
 | B3 Position–force (2-ch) | 0.024 | 0.026 | 0.157 | 32 ms | 0.018 | 1.3 / 3.4 N | **0.94** |
-| **Proposed** | **0.016** | **0.017** | **0.116** | **8 ms** | **0.008** | 1.2 / 3.8 N | 0.76 |
+| **Proposed** | **0.011** | **0.007** | **0.123** | **0 ms** (< 10 ms) | **0.007** | 1.2 / 4.3 N | 0.73 |
 
-Ablations of the proposed controller: no MPC 0.026 rad / 20 ms; no tank (identical at k_of = 0.3); identity map 0.015 rad, corr 0.69; N = 3 0.016 rad.
+Ablations of the proposed controller: no MPC 0.026 rad / 20 ms; no tank (identical at k_of = 0.3); identity map 0.011 rad, corr 0.70; N = 3 0.011 rad. (Seed 0, ADMM ρ = 0.3; see `EVALUATION_METHODOLOGY.md` for the 5-seed table.)
 
 Delay (both directions):
 

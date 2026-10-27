@@ -52,14 +52,14 @@ Four estimators are run on the same logged current and position:
 ### S1b — The estimator inside the closed force loop
 | Case | RMSE (rad) | peak wall force (N) | false shoulder torque in free motion (N·m) |
 |---|---|---|---|
-| Proposed, k_of 0.3, static | 0.016 | 4.1 | 0.55 |
-| Proposed, k_of 0.3, momentum | 0.016 | 3.8 | 0.44 |
-| Proposed, k_of 0.6, static | **0.110** | **63.2** | **5.58** |
-| Proposed, k_of 0.6, momentum | **0.016** | **11.8** | 0.46 |
+| Proposed, k_of 0.3, static | 0.012 | 4.2 | 0.50 |
+| Proposed, k_of 0.3, momentum | 0.011 | 4.3 | 0.45 |
+| Proposed, k_of 0.6, static | **0.110** | **73.4** | **5.87** |
+| Proposed, k_of 0.6, momentum | **0.012** | **12.6** | 0.46 |
 | Position–force, k_of 0.6, static | 0.238 | 110.5 | 11.30 |
 | Position–force, k_of 0.6, momentum | 0.100 | 99.3 | 0.47 |
 
-**Interpretation:** the estimator's main effect shows up in closed loop. With the static residual, a force gain of 0.6 makes the master and slave excite each other: the "contact" estimate reaches 5–11 N·m in free space, and the arm presses the wall with 63–110 N. With the momentum observer, the same gain is stable (0.016 rad, 11.8 N). **The observer roughly doubles the usable force gain.**
+**Interpretation:** the estimator's main effect shows up in closed loop. With the static residual, a force gain of 0.6 makes the master and slave excite each other: the "contact" estimate reaches 5–11 N·m in free space, and the arm presses the wall with 73–110 N. With the momentum observer, the same gain is stable (0.012 rad, 12.6 N). **The observer roughly doubles the usable force gain.**
 
 > Correction to `CODE_FIXES.md` A7: the ±12 N·m figure quoted there was measured inside this oscillating closed loop. In open loop the static residual's error is 0.3–1.1 N·m and grows with speed.
 
@@ -77,8 +77,8 @@ The force that the master exerts on the operator's hand is compared with the ide
 |---|---|---|---|---|---|
 | Original code | 3.41 | 0.53 | 0.25 | −0.12 | 1.13 |
 | Position–force (2-ch) | 0.34 | 0.96 | 0.98 | 0.94 | 1.40 |
-| **Proposed** | 0.43 | 0.94 | 0.98 | 1.01 | 1.60 |
-| Proposed, k_of = 0.6 | 0.59 | 0.96 | 0.97 | 0.90 | 1.30 |
+| **Proposed** | 0.43 | 0.94 | 0.98 | 1.02 | 1.60 |
+| Proposed, k_of = 0.6 | 0.59 | 0.96 | 0.97 | 0.91 | 1.30 |
 
 (The gain is the least-squares ratio of felt force to k_of·F_env; 1 means exact scaled reproduction.)
 
@@ -92,9 +92,9 @@ The force that the master exerts on the operator's hand is compared with the ide
 ### S2b — What sets the rendered magnitude
 | Case | gain x | gain z |
 |---|---|---|
-| Proposed | 1.01 | 1.60 |
-| Proposed, k_om = 0 (no position channel) | 0.69 | 1.11 |
-| Proposed, identity map | 1.31 | 1.90 |
+| Proposed | 1.02 | 1.60 |
+| Proposed, k_om = 0 (no position channel) | 0.70 | 1.11 |
+| Proposed, identity map | 1.33 | 1.89 |
 | Position–force, identity map | 0.94 | 1.40 |
 | Position–force, Jacobian map | 0.67 | 1.10 |
 
@@ -112,9 +112,9 @@ This is the classic four-channel transparency trade-off (Lawrence 1993). Exact t
 | m (kg) | m·g (N) | Original | Position–force | Proposed |
 |---|---|---|---|---|
 | 0.00 | 0.00 | 4.08 | 0.21 | 0.22 |
-| 0.20 | 1.96 | 4.08 | 0.93 | 1.00 |
-| 0.50 | 4.91 | 4.08 | 2.05 | 2.34 |
-| 0.75 | 7.36 | 4.08 | 3.00 | 3.48 |
+| 0.20 | 1.96 | 4.08 | 0.93 | 1.01 |
+| 0.50 | 4.91 | 4.08 | 2.05 | 2.33 |
+| 0.75 | 7.36 | 4.08 | 3.00 | 3.43 |
 
 **Caption:** *Weight of an object held by the slave as felt at the master (ideal: k_of·m·g).*
 
@@ -132,14 +132,14 @@ This is the classic four-channel transparency trade-off (Lawrence 1993). Exact t
 |---|---|---|---|
 | Position–position | 5.7 → 9.4 | ≈ 0 | 0.025–0.027 |
 | Position–force | 3.0 → 3.6 | 0.31–0.33 | 0.024 |
-| **Proposed** | 3.4 → 4.5 | 0.30–0.32 | **0.015–0.016** |
+| **Proposed** | 3.5 → 4.9 | 0.30–0.31 | **0.011–0.012** |
 
 **Caption:** *Contact behaviour across environment stiffness: peak contact force, ratio of rendered to true force (dashed: k_of), and tracking RMSE.*
 
 **Interpretation**
-- With force feedback the operator stops at a contact force that hardly depends on the wall stiffness (3–4.5 N). Without it (P-P) contact force grows with stiffness, up to 9.4 N.
+- With force feedback the operator stops at a contact force that hardly depends on the wall stiffness (3–5 N). Without it (P-P) contact force grows with stiffness, up to 9.4 N.
 - The rendered/true ratio stays at k_of over a 20× stiffness range: the force channel is calibrated, not tuned to one environment.
-- The proposed controller keeps about 35 % lower tracking error than both baselines throughout.
+- The proposed controller keeps about 50 % lower tracking error (0.011–0.012 rad against 0.024–0.027 rad) than both baselines throughout.
 
 ---
 
@@ -148,16 +148,16 @@ This is the classic four-channel transparency trade-off (Lawrence 1993). Exact t
 
 | k_of | 0 ms, no tank → tank | 20 ms | 60 ms |
 |---|---|---|---|
-| 0.3 | 0.12 → 0.12 | 0.20 → 0.20 | 0.26 → 0.26 |
-| 0.6 | 0.15 → 0.14 | 0.59 → 0.59 | 1.68 → 1.63 |
-| 1.0 | **0.72 → 0.17** | 0.84 → 0.85 | 2.00 → 2.22 |
-| 1.5 | **1.29 → 0.45** | 1.23 → 1.11 | 2.30 → 2.54 |
+| 0.3 | 0.12 → 0.12 | 0.21 → 0.21 | 0.27 → 0.27 |
+| 0.6 | 0.15 → 0.15 | 0.73 → 0.73 | 1.53 → 1.38 |
+| 1.0 | **0.87 → 0.50** | 0.82 → 0.88 | 2.62 → 1.94 |
+| 1.5 | **1.99 → 0.72** | 0.96 → 0.94 | 2.37 → 2.25 |
 
 **Caption:** *Maximum tracking error versus force-feedback gain and communication delay, without (left) and with (right) the energy tank.*
 
 **Interpretation**
-- Without delay, the tank extends the stable force gain from about 0.6 to about 1.0, and it makes 1.5 usable (1.29 → 0.45 rad). This is the passivity property of Eq. 8 working as designed.
-- **With delay the single tank does not help.** It only guards the master port; under delay, the energy comes in on the slave side as it tracks the delayed master.
+- Without delay, the tank reduces the worst-case error at k_of = 1.0 from 0.87 to 0.50 rad and at 1.5 from 1.99 to 0.72 rad, but neither is below the 0.5 rad "usable" line by a margin, so the safe gain stays at k_of ≤ 0.6. This is the passivity property of Eq. 8 working as designed.
+- **With delay the single tank does not help reliably** (differences of ±0.1–0.7 rad that change sign between cells; a single run per cell, so treat them as noise-level). It only guards the master port; under delay, the energy comes in on the slave side as it tracks the delayed master.
 - k_of ≤ 0.3 is the safe default region, which is why it is the default.
 
 **Say it in the paper:** extending passivity to delayed operation needs a two-port tank or TDPA with energy exchange between the sites (future work).
