@@ -39,7 +39,8 @@ def test_engine_ready_reaches_the_gui_thread(window):
 
 
 def test_parameter_table_follows_the_declarations(window):
-    window.control_law_edit.setPlainText("% @param min=0 max=50\nKp = 8;\nKi = 0.5; % @param min=0 max=10\nu = Kp*e + Ki*integral;")
+    window.control_law_edit.setPlainText(
+        "% @param min=0 max=50\nKp = 8;\nKi = 0.5; % @param min=0 max=10\nu = Kp*e + Ki*integral;")
     assert list(window.param_inputs) == ["Kp", "Ki"]
     assert window.param_inputs["Kp"].value() == 8.0
     lo, hi = window.param_bounds_inputs["Ki"]
