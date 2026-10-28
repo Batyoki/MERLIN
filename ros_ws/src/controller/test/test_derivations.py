@@ -33,7 +33,7 @@ def rx():
 
 
 # --------------------------------------------------------------------------
-# Section 1: model identities
+# Model identities (Assumption 1)
 # --------------------------------------------------------------------------
 def test_inverse_dynamics_decomposition(vx):
     """M a + C(q,v) v + G = tau (rnea): ArmModel.mass/coriolis/gravity are consistent."""
@@ -48,7 +48,7 @@ def test_inverse_dynamics_decomposition(vx):
 
 
 def test_Mdot_equals_C_plus_Ct(vx):
-    """Assumption A1 used in Theorem 1:  dM/dt = C + C^T  (equivalently Mdot - 2C skew)."""
+    """Assumption 1, used by the observer theorem:  dM/dt = C + C^T  (equivalently Mdot - 2C skew)."""
     rng = np.random.default_rng(2)
     eps = 1e-6
     for _ in range(10):
@@ -61,7 +61,7 @@ def test_Mdot_equals_C_plus_Ct(vx):
 
 
 def test_static_residual_equals_tau_ext_minus_Mqdd(vx):
-    """Lemma 1: G + C v - tau_m = tau_ext - M a (exact, from the dynamics)."""
+    """Static-residual lemma: G + C v - tau_m = tau_ext - M a (exact, from the dynamics)."""
     rng = np.random.default_rng(3)
     q, v = rng.uniform(-1, 1, 5), rng.normal(0, 1, 5)
     tau_m, tau_ext = rng.normal(0, 1, 5), rng.normal(0, 1, 5)
@@ -71,11 +71,12 @@ def test_static_residual_equals_tau_ext_minus_Mqdd(vx):
 
 
 # --------------------------------------------------------------------------
-# Section 2: discrete momentum observer is the IIR filter a = K dt
+# External-torque estimation: the discrete momentum observer is the IIR filter a = K dt
 # --------------------------------------------------------------------------
 def test_discrete_observer_recursion_is_exact_iir():
     """
-    Proposition 2: if the sampled momentum balance p[k]-p[k-1] = dt (tau_m - beta + tau_ext)[k] holds (zero quadrature
+    Discrete-observer proposition: if the sampled momentum balance
+    p[k]-p[k-1] = dt (tau_m - beta + tau_ext)[k] holds (zero quadrature
     error), the observer obeys r[k] = (1 - K dt) r[k-1] + K dt tau_ext[k] EXACTLY.
     A one-joint stub model (M = 1, C = 0, G(q) = 0.3 q) makes p = dq so the balance can be imposed.
     """
@@ -106,7 +107,7 @@ def test_discrete_observer_recursion_is_exact_iir():
 
 def test_observer_converges_to_constant_external_torque(vx):
     """
-    Theorem 1 / Corollary: for a constant tau_ext the estimate converges to it (final value within 3 %).
+    Observer theorem: for a constant tau_ext the estimate converges to it (final value within 3 %).
     Plant: motor torque recomputed every 1 ms (gravity compensation + damping + a stabilising spring, so the arm
     settles); observer sampled at 50 Hz from the same signals.
     """
@@ -131,10 +132,10 @@ def test_observer_converges_to_constant_external_torque(vx):
 
 
 # --------------------------------------------------------------------------
-# Section 3: exact ZOH discretisation, Euler instability of the original admittance
+# Slave admittance: exact ZOH discretisation, Euler instability with the physical inertia
 # --------------------------------------------------------------------------
 def test_zoh_matches_fine_integration():
-    """Theorem 2: exact ZOH step equals numerical integration of the ODE under constant input."""
+    """Exact-ZOH theorem: the ZOH step equals numerical integration of the ODE under constant input."""
     M, D, K, dt = 0.3, 6.0, 30.0, 0.02
     f = AdmittanceFilter(np.array([M]), np.array([D]), np.array([K]), dt, np.array([10.0]))
     x = np.array([0.02, -0.1])
@@ -146,8 +147,8 @@ def test_zoh_matches_fine_integration():
     assert np.allclose([f.q_e[0], f.dq_e[0]], exact, atol=1e-10)
 
 
-def test_euler_unstable_for_original_wrist_admittance():
-    """Proposition 3 and the worked example: original slave_Msd[4,4]=7.29e-4, D=0.4, K=10 at dt=20 ms."""
+def test_euler_unstable_with_physical_wrist_inertia():
+    """Stability proposition and remark: wrist-rotate link inertia 7.29e-4 as M_d, D=0.4, K=10 at dt=20 ms."""
     M, D, K, dt = 7.29e-4, 0.4, 10.0, 0.02
     lam = np.roots([M, D, K])
     assert np.all(lam.real < 0)                                  # the continuous system is stable
@@ -167,16 +168,18 @@ def test_admittance_static_deflection_is_tau_over_K():
 
 
 # --------------------------------------------------------------------------
-# Section 4: the original master law integrates its own command
+# Master law: a command that feeds back the master's own current integrates itself
 # --------------------------------------------------------------------------
-def test_original_master_law_has_a_pole_at_one():
-    """Lemma 4: unit-gain loop (pole at z = 1): a constant bias b makes tau_cmd ramp by alpha*b per sample."""
-    alpha, b = 0.15, 0.01                                        # filter coefficient used in the original code
+def test_master_law_with_own_estimate_has_a_pole_at_one():
+    """Design-rule lemma: unit-gain loop (pole at z = 1): a constant bias b makes tau_cmd ramp by alpha*b per sample."""
+    alpha, b = 0.15, 0.01                                        # IIR coefficient of the measured current
     tau_cmd, tau_meas_filt = 0.0, 0.0
     hist = []
     for k in range(400):
-        tau_meas_filt = alpha * tau_cmd + (1 - alpha) * tau_meas_filt     # measured current = last command, IIR filtered
-        tau_cmd = tau_meas_filt + b                                      # original: G - D dq + (tau_meas - C - G) + tau_f
+        # measured current = last command, IIR filtered
+        tau_meas_filt = alpha * tau_cmd + (1 - alpha) * tau_meas_filt
+        # law G - D dq + (tau_meas - C - G) + tau_f, i.e. tau_meas + b
+        tau_cmd = tau_meas_filt + b
         hist.append(tau_cmd)
     slope = np.diff(hist[-50:]).mean()
     assert slope == pytest.approx(alpha * b, rel=1e-2)           # grows linearly (alpha*b per sample): an integrator
@@ -184,10 +187,10 @@ def test_original_master_law_has_a_pole_at_one():
 
 
 # --------------------------------------------------------------------------
-# Section 5: force mapping
+# Force reflection between different arms
 # --------------------------------------------------------------------------
 def test_dls_wrench_reproduces_joint_torque(vx):
-    """Proposition 5: J^T F_hat = tau for F_hat = J (J^T J + lam^2 I)^-1 tau, up to O(lam^2)."""
+    """Damped-least-squares proposition: J^T F_hat = tau for F_hat = J (J^T J + lam^2 I)^-1 tau, up to O(lam^2)."""
     rng = np.random.default_rng(4)
     q = rng.uniform(-0.5, 0.5, 5)
     tau = rng.normal(0, 1, 5)
@@ -197,7 +200,7 @@ def test_dls_wrench_reproduces_joint_torque(vx):
 
 
 def test_identical_arms_give_identity_map(vx):
-    """Proposition 6."""
+    """Consistency proposition."""
     q = np.array([0.1, -0.3, 0.4, 0.5, 0.0])
     tau = np.array([0.2, -1.0, 0.7, 0.1, 0.0])
     fm = ForceMapping(vx, vx, "jacobian", damping=1e-6)
@@ -205,7 +208,7 @@ def test_identical_arms_give_identity_map(vx):
 
 
 def test_different_arms_over_render_joint_torque_reflection(rx, vx):
-    """Remark after Prop. 6: same joint torque => larger Cartesian force on the shorter RX200."""
+    """Consistency proposition, second part: same joint torque => larger Cartesian force on the shorter RX200."""
     q = np.array([0.0, -0.3, 0.3, 0.6, 0.0])
     reach_ratio = np.linalg.norm(vx.fk(q)[[0, 2]]) / np.linalg.norm(rx.fk(q)[[0, 2]])
     assert 1.25 < reach_ratio < 1.4
@@ -216,7 +219,7 @@ def test_different_arms_over_render_joint_torque_reflection(rx, vx):
 
 
 # --------------------------------------------------------------------------
-# Section 6: the MPC QP
+# Slave MPC: the QP, ADMM and offset-free tracking
 # --------------------------------------------------------------------------
 def _reference_qp(mpc, i, x0, r, u_prev, d_hat):
     """Solve the same per-joint QP with SLSQP from the problem data (independent of the ADMM code)."""
@@ -245,7 +248,7 @@ def _reference_qp(mpc, i, x0, r, u_prev, d_hat):
 
 
 def test_admm_solves_the_stated_qp():
-    """Section 6: PositionMPC.solve returns the minimiser of the QP written in the derivation."""
+    """PositionMPC.solve returns the minimiser of the QP written in the derivation."""
     n, N, dt = 3, 10, 0.02
     omega, zeta = np.array([25.0, 30.0, 90.0]), np.array([0.3, 0.5, 0.6])
     qmin, qmax = np.full(n, -1.0), np.full(n, 1.0)
@@ -262,11 +265,12 @@ def test_admm_solves_the_stated_qp():
         for i in range(n):
             U, _ = _reference_qp(mpc, i, x0[i], r[:, i], u_prev[i], d_hat=0.0)
             worst = max(worst, abs(u0[i] - U[0]))
-    assert worst < 2e-3          # cold start, 60 fixed ADMM iterations: first move within 2 mrad of the exact QP solution
+    # cold start, 60 fixed ADMM iterations: first move within 2 mrad of the exact QP solution
+    assert worst < 2e-3
 
 
 def test_applied_command_always_respects_limits():
-    """Section 6: the applied u0 satisfies the position and rate limits by construction (final clipping)."""
+    """Admissibility proposition: the applied u0 satisfies the position and rate limits (final clipping)."""
     n, N, dt = 2, 10, 0.02
     mpc = PositionMPC(np.array([25.0, 25.0]), np.array([0.3, 0.3]), dt, N, np.full(n, -0.5), np.full(n, 0.5),
                       np.full(n, 3.0), np.full(n, 0.05), iters=3)       # deliberately unconverged
@@ -280,8 +284,8 @@ def test_applied_command_always_respects_limits():
 
 
 def test_offset_free_estimate_converges_and_removes_steady_state_error():
-    """Proposition 7: constant output disturbance c/omega^2 is learned; the closed loop has zero steady-state error."""
-    n, N, dt = 1, 10, 0.02
+    """Offset-free proposition: a constant output disturbance c/omega^2 is learned; zero steady-state error."""
+    N, dt = 10, 0.02
     omega, zeta, c = 25.0, 0.5, -30.0                      # plant: q'' = w^2 (u - q) - 2 z w q' + c  (static sag c/w^2)
     A = np.array([[0, 1], [-omega ** 2, -2 * zeta * omega]])
     B = np.array([0, omega ** 2])
@@ -313,10 +317,10 @@ def test_offset_free_estimate_converges_and_removes_steady_state_error():
 
 
 # --------------------------------------------------------------------------
-# Section 7: the energy tank
+# Energy tank
 # --------------------------------------------------------------------------
 def test_tank_energy_bound_theorem():
-    """Theorem 4: sum(gamma P_out dt) <= T0 - Tmin + sum(P_in dt) for any signals, including T_max clipping."""
+    """Tank theorem: sum(gamma P_out dt) <= T0 - Tmin + sum(P_in dt) for any signals, including T_max clipping."""
     rng = np.random.default_rng(7)
     dt, T0, Tmin, Tmax = 0.02, 0.5, 0.05, 1.0
     tank = EnergyTank(dt, T0, Tmin, Tmax)
@@ -333,7 +337,7 @@ def test_tank_energy_bound_theorem():
 
 
 # --------------------------------------------------------------------------
-# Section 8: metrics
+# Metrics
 # --------------------------------------------------------------------------
 def test_mean_of_joint_rmse_never_exceeds_pooled_rmse():
     rng = np.random.default_rng(8)

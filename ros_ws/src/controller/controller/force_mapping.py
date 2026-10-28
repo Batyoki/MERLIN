@@ -2,11 +2,11 @@
 force_mapping.py
 ----------------
 Maps the slave's estimated external joint torque onto master joint torque
-(novelty: force reflection between kinematically different arms).
+between two arms of different kinematics.
 
 The RX200 master and VX300s slave have different link lengths, so equal
 joint torques are NOT equal end-effector forces. Reflecting τ̂_ext,s joint
-by joint (Γ = I, what the old code did) renders a contact force on the
+by joint (Γ = I) renders a contact force on the
 operator's hand that is wrong in magnitude and direction.
 
 Cartesian-consistent mapping:

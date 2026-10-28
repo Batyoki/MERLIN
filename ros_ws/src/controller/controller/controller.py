@@ -188,8 +188,12 @@ class BilateralNode(Node):
         P("use_tank", True)
         P("force_map", "jacobian")
 
-        g = lambda n: self.get_parameter(n).value
-        arr = lambda n: np.array(g(n), dtype=float)
+        def g(n):
+            return self.get_parameter(n).value
+
+        def arr(n):
+            return np.array(g(n), dtype=float)
+
         self.master_ns, self.slave_ns = g("master_ns"), g("slave_ns")
         self.timeout = g("state_timeout_s")
         self.filter_alpha = g("filter_alpha")

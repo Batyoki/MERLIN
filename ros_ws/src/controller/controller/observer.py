@@ -4,12 +4,11 @@ observer.py
 Generalized-momentum observer for the external joint torque of the SLAVE
 (De Luca & Mattone, ICRA 2003; Haddadin et al., IEEE T-RO 2017).
 
-Why the static residual τ̂ = G + C q̇ − τ_motor (paper Eq. 2) is not enough
-on a position-controlled arm: during motion the Dynamixel position loop
-produces large torques to accelerate the links (M q̈). With q̈ neglected,
-those tracking torques appear as "contact" — in simulation the shoulder
-estimate had ±12 N·m RMS in FREE motion, which is the rough, random force
-the operator felt. Adding M q̈ needs a double-differentiated encoder signal.
+Why not the static residual τ̂ = G + C q̇ − τ_motor: it equals τ_ext − M q̈, so on a
+position-controlled arm the torques that accelerate the links appear as "contact".
+In simulation its free-motion error grows with speed (shoulder 0.25 → 1.08 N·m RMS
+at 1× → 3× speed), and inside the force loop it destabilised k_of = 0.6.
+Adding M q̈ would need a double-differentiated encoder signal.
 
 The momentum observer avoids q̈. With p = M(q) q̇ and
     ṗ = τ_motor + τ_ext + C(q, q̇)ᵀ q̇ − G(q),
@@ -18,8 +17,8 @@ the residual
 obeys ṙ = K_O (τ_ext − r): a first-order low-pass of the true external
 torque with bandwidth K_O (rad/s), independent of the motion.
 
-On the MASTER (current mode) τ_motor must be the COMMANDED torque; that
-variant is left for future work (novelty item 1).
+Only the slave uses it: on the master (current mode) the measured current echoes
+the command and carries no new information (docs/derivations, master law).
 """
 
 import numpy as np

@@ -14,15 +14,14 @@ Modes (same inputs/outputs, so baselines and ablations share one code path):
                 τ_f = k_of Γ dz(τ̂_ext,s) − k_om K_md (q_m − q_s)
                 optionally passed through the energy tank.
 
-Master (impedance, paper Eq. 4 corrected)
+Master (impedance)
     τ_m,cmd = Ĝ_m(q_m) − D_md q̇_m + γ τ_f
   Ĝ_m is evaluated at the RAW master angles (the master→slave offset is part
-  of the reference mapping only). The operator's own force is NOT fed back:
-  in current mode the measured current echoes the command, so adding
-  τ̂_ext,m (old Eq. 4/6) closed a unity positive-feedback loop that
-  integrated the command until it saturated.
+  of the reference mapping only). The master's own current is NOT fed back:
+  in current mode it echoes the command, and a term built from it would
+  close a unit-gain loop that integrates any bias (pole at z = 1).
 
-Slave (admittance, paper Eq. 5 corrected)
+Slave (admittance)
     q_s,ref = S q_m + o + q_e,       M_sd q̈_e + D_sd q̇_e + K_sd q_e = dz(τ̂_ext,s)
   exact ZOH discretisation (admittance.py), then the position MPC
   (mpc_optimizer.py) produces the position command for the Dynamixel loop.
@@ -42,7 +41,7 @@ from .passivity import EnergyTank
 
 
 def dead_zone(x: np.ndarray, delta: np.ndarray) -> np.ndarray:
-    """Soft dead-zone dz_δ(x) = sign(x) max(|x| − δ, 0)  (paper Eq. 6)."""
+    """Soft dead-zone dz_δ(x) = sign(x) max(|x| − δ, 0)."""
     return np.sign(x) * np.maximum(np.abs(x) - delta, 0.0)
 
 
@@ -57,7 +56,7 @@ class BilateralParams:
     Dmd: np.ndarray = field(default_factory=lambda: np.array([0.08, 0.12, 0.08, 0.03, 0.01]))
     Kmd: np.ndarray = field(default_factory=lambda: np.array([3.0, 5.0, 3.0, 1.0, 0.3]))
     tau_master_max: np.ndarray = field(default_factory=lambda: np.array([2.0, 4.0, 2.0, 2.0, 0.75]))
-    # four-channel gains
+    # force / position channel gains
     kof: float = 0.3                     # robust to 60 ms delay in sim; 0.6 is not
     kom: float = 1.0
     tau_dead_zone: np.ndarray = field(default_factory=lambda: np.array([0.15, 0.3, 0.2, 0.1, 0.05]))

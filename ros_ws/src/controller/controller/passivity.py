@@ -1,8 +1,8 @@
 """
 passivity.py
 ------------
-Energy tank on the force-feedback port of the master (novelty: passivity
-guarantee for sensorless, kinematically heterogeneous force reflection).
+Energy tank on the force-feedback port of the master: bounds the energy that
+sensorless force reflection between different arms can return to the operator.
 
 The feedback torque τ_f that the controller renders on the master can
 inject energy into the human–master system at rate
@@ -23,13 +23,14 @@ below T_min:
 
 Since T ≥ T_min > 0 always, the energy delivered by the feedback channel up
 to any time is bounded by the energy the controller has dissipated plus
-T[0] − T_min, i.e. the controller port is passive. This holds regardless of
-torque-estimation errors, the joint-space ≠ Cartesian-space mismatch of the
-Jacobian force mapping, or communication delay. T_max limits how much energy
-can be released in a burst.
+T[0] − T_min. The bound holds regardless of torque-estimation errors and of the
+joint-space ≠ Cartesian-space mismatch of the Jacobian force mapping. It concerns
+the master port only: it does not make a delayed teleoperation loop passive
+(that needs a two-port tank / TDPA). T_max limits how much energy can be released
+in a burst.
 
 Refs: Franken et al., IEEE T-RO 2011; Ferraguti et al., IEEE T-RO 2015;
-Minelli et al., IEEE TCST 2023 (already cited in the paper).
+proof in docs/derivations (energy-tank theorem).
 """
 
 import numpy as np

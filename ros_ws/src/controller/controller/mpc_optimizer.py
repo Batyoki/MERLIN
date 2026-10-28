@@ -1,18 +1,10 @@
 """
 mpc_optimizer.py
 ----------------
-Constrained MPC for the POSITION-CONTROLLED slave (paper Eq. 7, corrected).
+Constrained, offset-free MPC for the POSITION-CONTROLLED slave.
 
-Why the old formulation did nothing
------------------------------------
-The previous optimizer had decision variables [dq_0..dq_{N-1}, τ_0..τ_{N-1}]
-but the rollout used only τ; dq appeared only in the cost term dqᵀ R dq.
-Its optimum is therefore dq* = 0 for any reference, and dq*_0 was exactly
-what the slave integrated. Slave motion came entirely from the leaky
-integrator q ← 0.95 q + 0.05 q_ref (a 0.39 s first-order lag at 50 Hz),
-which explains the 0.36 rad RMSE and the "delays at direction changes".
-It also solved a torque problem for an arm that only accepts position
-commands, so no torque was ever applied.
+The VX300s servos accept position commands, so the decision variable is the
+position command u, and the model is the identified servo position loop.
 
 Formulation used here
 ---------------------
@@ -34,7 +26,7 @@ Offset-free: the xs_sdk position loop has no gravity feed-forward, so each
 joint settles at u − G/K_p (static sag), which the linear model cannot
 predict. The MPC therefore runs the model in parallel (internal-model form)
 and estimates an output disturbance d̂ = LPF(q_meas − q̂_model); predictions
-are q̂ + d̂. Without this the "MPC" tracked worse than sending q_ref directly.
+are q̂ + d̂. Without it the model is biased by the static sag (≈ 26 mrad in simulation).
 
 r_k is the admittance reference q_s,ref previewed with the master velocity
 (r_k = r_0 + k Δt q̇_m), which lets the MPC cancel the position-loop lag.
@@ -43,11 +35,9 @@ condensed to N variables and solved with a fixed-iteration ADMM (OSQP
 scheme). The KKT matrix is constant and factorised once, so a solve is a few
 hundred 10×10 mat-vecs (< 1 ms), which fits the 20 ms budget easily.
 
-ρ matters: with ρ = 10 the 60 fixed iterations were far from the QP optimum (first
-move off by up to 26 mrad cold, 13 mrad warm on average) and the controller
-silently behaved like a different, less regularised design. ρ = 0.3 brings the
-warm-started first move within 0.2 mrad of the exact solution (tests:
-test/test_derivations.py::test_admm_*; docs/EVALUATION_METHODOLOGY.md).
+ρ matters with a fixed iteration budget: ρ = 0.3 brings the warm-started first move
+within 0.2 mrad of the exact QP solution in 60 iterations, whereas ρ = 10 leaves it
+about 13 mrad away (tests: test/test_derivations.py::test_admm_*).
 Only u*_0 is applied (receding horizon).
 """
 
