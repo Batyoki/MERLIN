@@ -24,7 +24,7 @@ The simulation is in MuJoCo (1 kHz physics, 50 Hz control):
 Four estimators are run on the same logged current and position:
 - the original code;
 - the original code with only the units fixed;
-- the static residual of Eq. 2 (fixed);
+- the static residual G + C q̇ − τ_m;
 - the momentum observer.
 
 **Results**
@@ -61,7 +61,6 @@ Four estimators are run on the same logged current and position:
 
 **Interpretation:** the estimator's main effect shows up in closed loop. With the static residual, a force gain of 0.6 makes the master and slave excite each other: the "contact" estimate reaches 5–11 N·m in free space, and the arm presses the wall with 73–110 N. With the momentum observer, the same gain is stable (0.012 rad, 12.6 N). **The observer roughly doubles the usable force gain.**
 
-> Correction to `CODE_FIXES.md` A7: the ±12 N·m figure quoted there was measured inside this oscillating closed loop. In open loop the static residual's error is 0.3–1.1 N·m and grows with speed.
 
 ---
 
@@ -170,4 +169,4 @@ This is the classic four-channel transparency trade-off (Lawrence 1993). Exact t
 3. **S5**: stability and the role of passivity.
 4. **S3 or S4**: whichever fits; S4 is the stronger baseline comparison.
 
-These are **simulation** results. The paper should say so, and the hardware protocol in `MATH_AND_COMPARISON.md` §4 (known masses, kitchen scale) repeats S1 and S3 on the real arms.
+These are **simulation** results. The hardware protocol in `HARDWARE_VALIDATION.md` (known masses, force against a scale) repeats S1 and S3 on the real arms.
