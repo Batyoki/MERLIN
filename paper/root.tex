@@ -1,0 +1,443 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%2345678901234567890123456789012345678901234567890123456789012345678901234567890
+%        1         2         3         4         5         6         7         8
+
+\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4 paper
+
+\IEEEoverridecommandlockouts                              % This command is only needed if
+                                                          % you want to use the \thanks command
+\overrideIEEEmargins                                      % Needed to meet printer requirements.
+
+\usepackage{graphics} % for pdf, bitmapped graphics files
+\usepackage{amsmath} % assumes amsmath package installed
+\usepackage{amssymb}  % assumes amsmath package installed
+\usepackage{tikz}
+\usepackage{float}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc}
+\newcommand{\hdr}{\scriptsize\itshape\bfseries}   % heading style inside the architecture figure
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{\LARGE \bf
+MERLIN - Multi-arm Experimental Robotics Learning and INtegration
+}
+
+\author{Saipushkar Nagaraj$^{1}$, Yash Sanjeev Halbhavi$^{2}$ and Ameer K. Mulla$^{3}$% <-this % stops a space
+\thanks{$^{1}$This work is partially supported by Anusandhan National Research Foundation (ANRF), Govt. of India}%
+\thanks{$^{2}$A Video demonstration of the Testbed is available at \url{https://youtu.be/_An5y608v_o}}
+}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Modern robotic arm research demands a single unified platform to support hybrid simulation-to-hardware execution, reinforcement learning data collection, camera geometry-aware policy training, and bilateral teleoperation. This paper presents MERLIN, a robotic arm control testbed that unifies bilateral teleoperation, multi-arm interoperability, custom control algorithm development, MATLAB integration, and a geometry-aware RL data collection pipeline within a single software architecture. The platform records camera intrinsics, camera extrinsics, and ray embeddings alongside joint states, motor currents, and commanded actions in a unified episode schema, and supports simulation, hardware, and mixed operation. For sensorless force-feedback teleoperation between kinematically different arms, MERLIN provides a bilateral controller that combines a generalized-momentum estimate of the external torque, an exactly discretized slave admittance, Jacobian-based force reflection, an energy tank on the feedback channel, and a constrained, offset-free model predictive controller for position-controlled slave actuators. Teleoperation trials on a bimanual Interbotix X-Series setup demonstrate synchronized multimodal data acquisition, and a simulation study with MuJoCo models of the same arms compares the controller with unilateral, position--position, and position--force teleoperation, and evaluates force estimation, force reproduction, and stability under communication delay.
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+Robotic arm teleoperation and control remain central to applications such as surgery, hazardous manipulation, space exploration, and industrial automation. Progress in bilateral teleoperation, reinforcement learning (RL), and hybrid sim-to-real workflows now requires platforms that span the full research lifecycle, from controller prototyping to large-scale data collection.
+
+Deep RL has produced strong manipulation policies \cite{han2023deeprl, singh2019endtoend}, but performance depends on data quality and scale, and thus on reliable teleoperation, synchronized multi-sensor logging, and safe experimental infrastructure \cite{mahmood2018senseact}. Viewpoint generalization is an added difficulty: visual policies often latch onto static background cues instead of geometry-aware features \cite{jiang2025kyknow}.
+
+To our knowledge, no existing system unifies bilateral teleoperation, custom control, RL data collection, camera-geometry logging, and hybrid sim-real operation. Researchers therefore maintain separate stacks, which slows development and weakens reproducibility. MERLIN closes this gap with a single extensible testbed and a consistent data model, so effort can go to algorithms rather than integration.
+
+Force feedback is the part of such a testbed that is hardest to obtain on low-cost research arms: they carry no force-torque sensor, the master and slave often differ in kinematics, and the slave servos accept position rather than torque commands. The contributions of this paper are:
+\begin{itemize}
+\item an open testbed that integrates multi-arm teleoperation (joint, joystick, WebXR, and bilateral), camera-geometry-aware episode recording, and an in-GUI control development and tuning environment with MATLAB;
+\item a sensorless bilateral controller for a current-controlled master and a position-controlled slave of different kinematics, whose components are each stated with the property they guarantee (Section~\ref{sec:bilateral});
+\item a simulation study in a MuJoCo model of the arms that compares the controller with standard teleoperation architectures and evaluates force estimation, force reproduction, and stability under delay (Section~\ref{sec:experiments}).
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Contribution}
+
+This paper presents MERLIN, a comprehensive robotic arm control testbed designed to serve as a unified research platform addressing the aforementioned limitations. The system has the following architecture layout along with the following features:
+
+\vspace{-0.3cm}
+\subsection{System Architecture}
+\vspace{-0.215cm}
+The MERLIN architecture is organized as a layered stack consisting of five core modules, all unified through a shared calibration, synchronization, and safety layer. Fig.~\ref{fig:architecture} presents the high-level system architecture.
+
+The GUI serves as the unified entry point, exposing all subsystems through a single interface. The calibration and synchronization layer ensures that camera geometry, including intrinsics, extrinsics, and ray embeddings, and robot state are time-aligned across all modalities. The safety layer enforces joint limits and command-rate limits in every operating mode, and the bilateral controller additionally constrains the slave command and bounds the energy fed back to the operator (Section~\ref{sec:bilateral}). The unified episode store captures every timestep in a consistent schema, enabling replay, analysis, and training regardless of whether data originated from simulation, hardware, or hybrid execution.
+
+This design is chosen because learning performance is highly sensitive to setup details such as delays, action cycle timing, and the choice of action representation \cite{mahmood2018senseact}. By treating calibration, synchronization, and logging as first-class architectural components, MERLIN eliminates common sources of inconsistency that plague multi-platform robotics research.
+
+\begin{figure}[th]
+\centering
+\begin{tikzpicture}[
+    every node/.style={font=\tiny},
+    block/.style={
+        rectangle, draw, semithick, rounded corners,
+        align=center, fill=white, inner sep=2.5pt
+    },
+    hdr/.style={font=\scriptsize\itshape\bfseries},
+    arrow/.style={semithick, -{Latex[scale=0.6]}}
+]
+
+% ---- Stage 2: five modules ----
+\node[block, text width=0.74\columnwidth] (multiarm)
+  {{\hdr Multi-Arm Support}\\[0.5pt]
+   \textbf{1.} Visualization (RViz) \quad \textbf{2.} Motor Status};
+
+\node[block, text width=0.74\columnwidth, below=0.14cm of multiarm] (mpc)
+  {{\hdr MPC Force Feedback Controller}};
+
+\node[block, text width=0.74\columnwidth, below=0.14cm of mpc] (matlab)
+  {{\hdr MATLAB Integration}\\[0.5pt]
+   \textbf{1.} Algorithm Verification \quad \textbf{2.} Parameter Tuning};
+
+\node[block, text width=0.74\columnwidth, below=0.14cm of matlab] (rl)
+  {{\hdr RL Data Procurement Pipeline}};
+
+\node[block, text width=0.74\columnwidth, below=0.14cm of rl] (teleop)
+  {{\hdr Teleoperation}\\[0.5pt]
+   \textbf{1.} Direct Joint Control \quad \textbf{2.} Joystick \quad \textbf{3.} Camera (WebXR)};
+
+% ---- Stage 1: GUI ----
+\node[block, text width=0.74\columnwidth, above=0.7cm of multiarm] (gui)
+  {{\hdr GUI / Unified Interface Layer}};
+
+% ---- Left bus: GUI -> all modules ----
+\coordinate (lbus) at ([xshift=-0.4cm]multiarm.west);
+\draw[semithick] (gui.south) -- ++(0,-0.26) -| (multiarm.west -| lbus);
+\draw[semithick] (multiarm.west -| lbus) -- (teleop.west -| lbus);
+\draw[arrow] (multiarm.west -| lbus) -- (multiarm.west);
+\draw[arrow] (mpc.west      -| lbus) -- (mpc.west);
+\draw[arrow] (matlab.west   -| lbus) -- (matlab.west);
+\draw[arrow] (rl.west       -| lbus) -- (rl.west);
+\draw[arrow] (teleop.west   -| lbus) -- (teleop.west);
+
+% ---- Stage 3: calibration / synchronization / safety ----
+\node[block, fill=gray!10, text width=0.74\columnwidth, below=0.8cm of teleop] (cal)
+  {{\hdr Calibration, Synchronization \& Safety Layer}\\[0.5pt]
+   camera intrinsics \quad extrinsics \quad ray embeddings \quad time stamps \quad joint/rate limits \quad energy tank};
+
+% ---- Right bus: all modules -> calibration ----
+\coordinate (rbus)  at ([xshift=0.4cm]multiarm.east);
+\coordinate (rbot)  at (teleop.east -| rbus);
+\coordinate (rjoin) at ([yshift=-0.34cm]rbot);
+\draw[semithick] (multiarm.east) -- (multiarm.east -| rbus);
+\draw[semithick] (mpc.east)      -- (mpc.east      -| rbus);
+\draw[semithick] (matlab.east)   -- (matlab.east   -| rbus);
+\draw[semithick] (rl.east)       -- (rl.east       -| rbus);
+\draw[semithick] (teleop.east)   -- (teleop.east   -| rbus);
+\draw[semithick] (multiarm.east -| rbus) -- (rjoin);
+\draw[arrow] (rjoin) -| (cal.north);
+
+% ---- Stage 4: unified episode store ----
+\node[block, fill=blue!5, text width=0.74\columnwidth, below=0.35cm of cal] (store)
+  {{\hdr Unified Episode Store}\\[0.5pt]
+   RGB \quad joint angles \quad velocities \quad motor currents \quad
+   commanded actions \quad camera geometry};
+\draw[arrow] (cal.south) -- (store.north);
+
+% ---- Stage 5: execution modes ----
+\node[block, fill=yellow!5, text width=0.17\columnwidth, below=0.65cm of store] (hybrid)
+  {{\hdr Hybrid}};
+\node[block, fill=green!5, text width=0.17\columnwidth, left=0.4cm of hybrid] (sim)
+  {{\hdr Simulation}};
+\node[block, fill=red!5, text width=0.17\columnwidth, right=0.4cm of hybrid] (hw)
+  {{\hdr Hardware}};
+
+\draw[arrow] (store.south) -- ++(0,-0.31) -| (sim.north);
+\draw[arrow] (store.south) -- ++(0,-0.31) -| (hw.north);
+\draw[arrow] (store.south) -- (hybrid.north);
+
+\end{tikzpicture}
+\caption{High-level architecture of MERLIN. The unified interface drives five experimental modules, all routed through a shared calibration, synchronization, and safety layer into a unified episode store consumed by three execution modes.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Teleoperation Module}
+
+To support a wide spectrum of teleoperation needs, the testbed features a multi-tiered teleoperation module. The architecture is designed to decouple the user input interface from the low-level hardware, funneling all commands through a common middleware. This results in the following three tiers of teleoperation: direct joint-level control, using both an MPC-based bilateral teleoperation and a joint publishing UI built into the test bench; spatial teleoperation using WebXR; and joystick-based Cartesian control. The WebXR and Cartesian modes build on the open-source \texttt{manipulator\_teleop} project and the \texttt{mink} inverse-kinematics library.
+
+\subsection{Multi-Arm Interoperability}
+
+The platform enables the selection and control of multiple heterogeneous robotic arms within a unified software stack, eliminating the need for separate middleware configurations per robot. This is achieved through a modular abstraction layer that integrates manipulators through standard ROS2 interfaces (joint states and joint-group commands), so the same tools serve arms of different sizes and configurations. This capability is essential for bimanual manipulation research, where coordinated control of two or more arms is required, and for scalable data collection workflows where multiple robots operate simultaneously \cite{dass2023pato, unibidex}.
+
+\subsection{RL Data Collection and Training}
+MERLIN logs synchronized encoder, motor-current, camera, and commanded-action streams in HDF5, so one format covers teleoperated demonstration collection through policy training.
+
+The pipeline follows three principles. First, data quality depends on synchronization, delay handling, and action representation: all streams are time-aligned, and every observation and every commanded action is stored with a raw timestamp and the age of the command. Second, scalable collection benefits from assisted teleoperation: the teleoperation module is designed so that assistive policies can automate repetitive subtasks without changing the logging. Third, the same control interface can host active strategies such as goal-conditioned exploration, so collection, logging, and evaluation share one platform.
+
+Images are stored with camera geometry: intrinsics \(\bm{K}\) (focal length, principal point, distortion); extrinsics \(\bm{T}_{\text{world}}^{\text{cam}}\), estimated with a checkerboard for \(\bm{K}\) and an AprilTag for \(\bm{T}_{\text{world}}^{\text{cam}}\); per-pixel Pl\"ucker ray embeddings from \(\bm{K}\) and \(\bm{T}_{\text{world}}^{\text{cam}}\); and per-frame capture times. One dataset then trains (1)~RGB-only policies, (2)~RGB + geometry policies, and (3)~camera-frame action policies, with end-effector actions in the camera frame so geometry stays consistent across embodiments and viewpoints. The same logs therefore support geometry-aware versus geometry-agnostic comparison.
+
+\subsection{Bimanual Bilateral Teleoperation}
+\label{sec:bilateral}
+
+One of the major challenges on most research arms, including the Interbotix XS series, is the lack of a dedicated force-torque sensor. External force is therefore estimated from motor current, following the sensorless approach of Murakami et al.\ \cite{murakami1993} in the generalized-momentum form of De~Luca and Mattone \cite{delucamattone2003,haddadin2017}. The platform implements force-reflecting bilateral teleoperation with this estimate, using master-impedance / slave-admittance (MISA) control \cite{MPCcontroller,impedance_origin}. Real-time tracking is handled by a constrained MPC on a master--slave pair (ReactorX 200 / ViperX 300S) with the forearm-roll joint locked, which leaves $n=5$ active joints, as in Fig.~\ref{fig:setup}. The RX200 master runs its Dynamixel servos in current mode, and the VX300S slave in position mode. The controller runs at $50$\,Hz ($\Delta t=0.02$\,s). The derivations of the results stated below are given in the supplementary document.
+
+\begin{figure}[thbp]
+    \centering
+    \includegraphics[width=0.5\linewidth]{images/2026-07-11-234643.jpg}
+    \caption{Bilateral Teleoperation Setup: master1, master2, slave1 and slave2 (From Top left, left to right)}
+    \label{fig:setup}
+\end{figure}
+
+\subsubsection{Notation and Model}
+Subscripts $m$ and $s$ denote master and slave. Saturation and dead-zone act elementwise:
+$\mathrm{sat}_{a}(x)=\mathrm{clip}(x,-a,a)$ and
+$\mathrm{dz}_{\delta}(x)=\mathrm{sign}(x)\max(|x|-\delta,0)$.
+Each arm obeys
+\begin{equation}
+M(q)\ddot q+C(q,\dot q)\dot q+G(q)=\tau_m+\tau_{ext},
+\label{eq:dyn}
+\end{equation}
+where $\tau_{ext}$ is the torque of the environment on the joints and $C$ is built from the Christoffel symbols, so that $\dot M=C+C^{\top}$. The motor torque follows from the measured current $I$ (mA) as $\tau_m=n_\mu\odot k_t\odot10^{-3}I$, with torque constants $k_t$ and $n_\mu$ motors per joint (two for the RX200 shoulder and for the VX300S shoulder and elbow).
+
+\subsubsection{External-Torque Estimation}
+Neglecting $M\ddot q$ in (\ref{eq:dyn}) gives the static residual $G+C\dot q-\tau_m=\tau_{ext}-M\ddot q$, which reports the inertial torque of a moving arm as contact. MERLIN therefore uses the generalized-momentum observer \cite{delucamattone2003}: with $p=M(q)\dot q$ and $K_O=\mathrm{diag}(k_i)>0$,
+\begin{equation}
+\begin{aligned}
+r&=K_O\Big(p-p(0)-\!\int_0^t\!\big(\tau_m+C^{\top}\dot q-G+r\big)ds\Big),\\
+\dot r&=K_O(\tau_{ext}-r),
+\end{aligned}
+\label{eq:observer}
+\end{equation}
+so $r$ is the external torque low-pass filtered at $k_i$\,rad/s, without acceleration measurement. Sampled with the rectangle rule, (\ref{eq:observer}) becomes $r[k]=(1-K_O\Delta t)\,r[k-1]+K_O\Delta t\,\tau_{ext}[k]$, which is stable for $0<k_i\Delta t<2$; we use $K_O=15$\,rad/s ($k_i\Delta t=0.3$). The observer is fed the unfiltered joint velocity and current.
+
+\subsubsection{Master Impedance Law}
+With the operator torque $\tau_h=J_m^{\top}F_h$ acting on the master,
+\begin{equation}
+\tau_{m,cmd}=\hat G_m(q_m)-D_{md}\,\dot q_m+\gamma\,\tau_f ,
+\label{eq:master}
+\end{equation}
+where $\tau_f$ is the feedback torque of (\ref{eq:feedback}) and $\gamma\in[0,1]$ the gate of the energy tank. With exact gravity compensation, $V=\tfrac12\dot q_m^{\top}M_m\dot q_m$ satisfies
+$\dot V=\dot q_m^{\top}\tau_h-\dot q_m^{\top}D_{md}\dot q_m+\gamma\,\dot q_m^{\top}\tau_f$:
+without feedback the master is output-strictly passive, and the only active term is the power $\gamma\,\tau_f^{\top}\dot q_m$ of the feedback channel.
+
+\subsubsection{Slave Admittance Law}
+\begin{equation}
+\begin{aligned}
+M_d\ddot q_e+D_d\dot q_e+K_dq_e&=\mathrm{dz}_{\delta}(\hat\tau_{ext,s}),\\
+q_{s,ref}&=S\,q_m+o+q_e,
+\end{aligned}
+\label{eq:admittance}
+\end{equation}
+where $M_d,D_d,K_d>0$ are per-joint design values (natural frequency about $10$\,rad/s, critically damped), $\delta$ a per-joint dead-zone, and $S,o$ the joint mapping from master to slave. With $x=[q_e,\dot q_e]^{\top}$, $\dot x=Ax+Bu$, the filter is discretized exactly for a zero-order hold,
+\begin{equation}
+\exp\!\Big(\Delta t\begin{bmatrix}A&B\\0&0\end{bmatrix}\Big)=\begin{bmatrix}A_d&B_d\\0&1\end{bmatrix},
+\end{equation}
+so that $x[k+1]=A_dx[k]+B_du[k]$ holds exactly for a piecewise-constant input $u=\mathrm{dz}_{\delta}(\hat\tau_{ext,s})$; the update is stable for every $\Delta t$ \cite{vanloan1978}; $|q_e|$ is saturated with anti-windup.
+
+\subsubsection{Force and Position Feedback}
+Three signals cross the link: the master position to the slave, and the estimated slave contact torque and slave position to the master. Because the arms differ in kinematics, equal joint torques do not mean equal end-effector forces. The slave wrench is estimated by damped least squares and rendered through the master Jacobian:
+\begin{equation}
+\begin{aligned}
+\hat F_s&=J_s\big(J_s^{\top}J_s+\lambda^2I\big)^{-1}\mathrm{dz}_{\delta}(\hat\tau_{ext,s}),\\
+\tau_f&=k_{of}\,J_m^{\top}S_f\hat F_s-k_{om}\,S\,K_{md}\,(S q_m+o-q_s),
+\end{aligned}
+\label{eq:feedback}
+\end{equation}
+where $\hat F_s$ satisfies $J_s^{\top}\hat F_s\to\hat\tau_{ext,s}$ as $\lambda\to0$, $S_f$ scales forces and moments, and $k_{of}$, $k_{om}$ weight the force and position channels.
+
+\subsubsection{Energy Tank}
+The power delivered by the feedback channel, $P_{out}=\tau_f^{\top}\dot q_m$, is drawn from a tank that collects the energy the controller dissipates, $P_{in}=\dot q_m^{\top}D_{md}\dot q_m+\dot q_e^{\top}D_d\dot q_e$:
+\begin{equation}
+\begin{aligned}
+T[k+1]&=\min\!\big(T_{\max},\,T[k]+\Delta t\,(P_{in}-\gamma P_{out})\big),\\
+\gamma&=\min\!\Big(1,\ \frac{T[k]+\Delta t\,P_{in}-T_{\min}}{\Delta t\,P_{out}}\Big),
+\end{aligned}
+\end{equation}
+with $\gamma=1$ when $P_{out}\le0$.
+Then $T\ge T_{\min}$ at all times and, for every $K$,
+\begin{equation}
+\textstyle\sum_{k<K}\Delta t\,\gamma[k]P_{out}[k]\le T[0]-T_{\min}+\sum_{k<K}\Delta t\,P_{in}[k],
+\end{equation}
+i.e., the feedback channel can return to the operator only energy that the controller has dissipated \cite{ferraguti2015}. The bound concerns the master port; stability under communication delay requires a two-port scheme \cite{anderson1989,hannaford2002} and is evaluated empirically in Section~\ref{sec:stability}.
+
+\subsubsection{Slave Tracking}
+The slave servos accept position commands $u$. Seen from $u$, each joint is modelled by its servo position loop with a slowly varying disturbance $c_i$ (gravity sag, friction),
+\begin{equation}
+\ddot q_i=\omega_i^{2}(u_i-q_i)-2\zeta_i\omega_i\dot q_i+c_i ,
+\label{eq:loop}
+\end{equation}
+with $\omega_i,\zeta_i$ identified from a step test, discretized exactly as above. Let $\hat q_k,\hat v_k$ be the predicted positions and velocities and $r_k=q_{s,ref}+k\Delta t\,S\dot q_m$ the reference preview. Over $N=10$ steps ($200$\,ms), the MPC solves
+\begin{equation}
+\begin{aligned}
+\min_{u_{0:N-1}}\;&\sum_{k=1}^{N}w_k\big(\hat q_k-r_k\big)^{2}+R\sum_{k=0}^{N-1}\big(u_k-u_{k-1}\big)^{2}\\
+\text{s.t.}\;&q_{\min}\le u_k\le q_{\max},\quad|u_k-u_{k-1}|\le\Delta u_{\max},\\
+&|\hat v_k|\le\dot q_{\max},
+\end{aligned}
+\label{eq:slave_mpc}
+\end{equation}
+with $w_k=Q$ for $k<N$, $w_N=P$, and $u_{-1}$ the last applied command. Offset-free tracking \cite{pannocchia2003,muske2002} is obtained by running the model in parallel with the plant and adding an output-disturbance estimate to the prediction, $\hat d\leftarrow\hat d+\alpha_d\,(q-\hat q-\hat d)$. Since the joints are decoupled, (\ref{eq:slave_mpc}) is a strictly convex quadratic program of $N$ variables per joint, $\tfrac12U^{\top}HU+f^{\top}U$ subject to $l\le CU\le h$, with $H=2(G_q^{\top}WG_q+R\,D^{\top}D)$ and $C=[I;\,D;\,G_v]$, where $G_q,G_v$ are the prediction matrices and $D$ the difference operator. It is solved by ADMM \cite{boyd2011admm,stellato2020osqp} with a matrix factorized once; only $u_0^{\star}$ is applied, after clipping to the joint and rate limits, so the command is always admissible.
+
+\subsection{Integrated Control Algorithm Development and Parameter Tuning}
+Unlike platforms that treat control design as an external process, MERLIN includes an in-UI development environment in which control laws are written, parameterized, simulated, and tuned without leaving the testbed; errors in parameter declarations are reported while the script is typed. Controllers can also be loaded from parameter files for systematic gain sweeps and automated tuning, with MATLAB used for optimization workflows that require no manual intervention. Tunable parameters are declared in the control script itself by an annotation, e.g.\ \texttt{\% @param min=0 max=50} above \texttt{Kp = 8;}, from which the interface creates the parameter fields, their bounds, and the search ranges of the tuner. The same scripts run in GNU Octave when MATLAB is not installed.
+
+MATLAB integration is bidirectional: algorithms written in MATLAB can be verified in simulation before hardware deployment, and recorded execution traces (HDF5) can be loaded in MATLAB for post-hoc analysis and retuning. Every evaluated parameter set can be saved together with its simulated response and performance metrics.
+
+\subsection{Hybrid Simulation Operations}
+Control algorithms can be validated in simulation before hardware deployment, or run alongside the real robot for sim-to-real studies. This is useful for safe RL exploration and for tests that would be costly or unsafe on hardware alone. Every arm in a multi-arm session is launched from the same description either on hardware or in simulation, so real and simulated arms can be mixed in one session, and the bilateral controllers are evaluated on MuJoCo \cite{todorov2012mujoco} models of the arms built from the same robot descriptions (Section~\ref{sec:sim}).
+
+Hybrid mode uses a shared episode format: simulated observations, joint states, and actions during sim episodes; physical counterparts during hardware episodes, so simulated and real behavior can be compared on the same timestep.
+
+By combining these capabilities in one extensible platform, MERLIN removes the need for separate stacks for teleoperation, control development, data collection, and simulation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Experiments and Evaluation}
+\label{sec:experiments}
+
+\subsection{Teleoperation Trials on Hardware}
+To quantitatively assess the capability of the system in maintaining joint-space synchronization under a real-time control loop, trajectory tracking was performed during a series of bilateral teleoperation tasks, encompassing both free-space motions and tasks that involve continuous contact with the environment. Throughout these experiments, the target joint trajectories, commanded by the operator via the RX-200 master manipulator, were recorded in parallel with the executed joint positions from the VX-300s slave manipulators.
+
+In order to ensure the synchronization of the joint states from the heterogeneous arms, both systems were sampled simultaneously at a control frequency of $50$\,Hz. Due to differences in the kinematic scaling and movement range between the master and slave grippers, gripper commands were linearly scaled, thus permitting frame-by-frame calculation of instantaneous tracking error in each degree of freedom. These trials were carried out with an earlier configuration of the slave tracking loop that preceded the controller of Section~\ref{sec:bilateral}; that controller is evaluated in the simulation study of Section~\ref{sec:sim}.
+
+Table~\ref{tab:tracking_metrics} presents a summary of the tracking performance over the dataset by reporting the root-mean-square error (RMSE), mean absolute error (MAE), and maximum absolute error of the tracking error in each joint. The overall RMSE is pooled over all joints and samples, $\sqrt{\tfrac{1}{nK}\sum_{j,k}e_{j}[k]^2}$.
+
+\begin{table}[th]
+\centering
+\caption{Joint Tracking Performance Metrics (Hardware Trials)}
+\label{tab:tracking_metrics}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\hline
+\textbf{Joint} & \textbf{RMSE (rad)} & \textbf{MAE (rad)} & \textbf{Max Error (rad)} \\
+\hline
+Waist & 0.2250 & 0.1355 & 1.2164 \\
+Shoulder & 0.2715 & 0.1800 & 1.0569 \\
+Elbow & 0.3609 & 0.2492 & 1.3315 \\
+Wrist Angle & 0.3152 & 0.1954 & 1.5555 \\
+Wrist Rotate & 0.5366 & 0.3736 & 1.4251 \\
+\hline
+\textbf{Overall} & \textbf{0.3583} & \textbf{0.2267} & \textbf{1.5555} \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+As shown in Table~\ref{tab:tracking_metrics}, tracking error is lower at the proximal joints (Waist, Shoulder) than at the distal joints, with the largest error at the Wrist Rotate. Overall tracking is shown in Fig.~\ref{fig:tracking_plot} as a scatter of actual versus target joint positions. Small delays appear when the motion direction changes rapidly. The forearm-roll joint was held fixed throughout.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{images/tracking_plot.png}
+\caption{Position tracking during continuous teleoperation on the hardware testbed (trials of Table~\ref{tab:tracking_metrics}).}
+\label{fig:tracking_plot}
+\end{figure}
+
+\subsection{Simulation Study of the Bilateral Controller}
+\label{sec:sim}
+\subsubsection{Setup}
+The controller of Section~\ref{sec:bilateral} was evaluated in MuJoCo 3.17 with models of the RX200 and VX300S built from the same robot descriptions as the controller, whose dynamics are computed with Pinocchio \cite{carpentier2019pinocchio}. Physics runs at $1$\,kHz and control at $50$\,Hz. The simulated arms differ from the controller's model on purpose: link masses and inertias are $8\%$ larger, and joint damping and Coulomb friction ($0.01$--$0.08$\,N\,m) are not modelled by the controller. Encoders are quantized to $4096$ counts per revolution, and motor current is quantized at $2.69$\,mA with $5$\,mA noise. The master is torque-driven; the slave servos are emulated by a saturated PD position loop. The position-loop parameters of (\ref{eq:loop}) were identified from step tests on the simulated slave, giving $\omega=[25.7,23.4,31.1,98.7,94.6]$\,rad/s and $\zeta=[0.27,0.30,0.42,0.66,0.46]$. The operator is a spring--damper that pulls the master towards an intended trajectory. The benchmark task lasts $24$\,s: $12$\,s of free motion with sinusoidal motion of all joints, followed by two pushes of the slave against a wall of stiffness $2000$\,N/m. Unless stated otherwise $k_{of}=0.3$, $k_{om}=1$, $Q=100$, $P=300$, $R=0.5$, and $\Delta u_{\max}=0.15$\,rad.
+
+\subsubsection{Controllers Compared}
+All controllers share the estimator, the master gravity compensation and damping, and the same slave interface:
+\textit{(i) Unilateral}: the slave receives the master position (rate limited), and the master renders no feedback ($\tau_f=0$).
+\textit{(ii) Position--position}: the slave follows the master, and the master is pulled towards the slave by a joint-space spring--damper, $\tau_f=-K_p(q_m-q_s)-K_d(\dot q_m-\dot q_s)$, so contact is felt only through the position error.
+\textit{(iii) Position--force}: the slave follows the master, and the estimated slave joint torque is reflected joint by joint, $\tau_f=k_{of}\,\mathrm{dz}_\delta(\hat\tau_{ext,s})$.
+\textit{(iv) Proposed without MPC}: the full controller of Section~\ref{sec:bilateral}, with the reference $q_{s,ref}$ sent to the servos directly (rate limited).
+\textit{(v) Proposed}: the full controller.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_benchmark.pdf}
+\caption{Benchmark task in simulation (seed 0). Top: shoulder tracking error $q_s-q_m$; the unilateral, position--position, and position--force curves coincide, because their slaves receive the same command. Bottom: force felt at the master along the wall normal, and the ideal scaled wall force $k_{of}F_{wall}$.}
+\label{fig:benchmark}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Benchmark task in simulation, mean\,$\pm$\,std over 5 seeds (new sensor noise and operator trajectory per seed). RMSE pooled over joints. Lag at the 20\,ms control resolution.}
+\label{tab:sim_multiseed}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccccc}
+\hline
+\textbf{Controller} & \textbf{RMSE free} & \textbf{RMSE all} & \textbf{Max all} & \textbf{Lag} & \textbf{Force} \\
+ & \textbf{(mrad)} & \textbf{(mrad)} & \textbf{(rad)} & \textbf{(ms)} & \textbf{corr.} \\
+\hline
+Unilateral & 24.7$\pm$0.8 & 31.2$\pm$2.3 & 0.23$\pm$0.13 & 30$\pm$2 & $-$0.23$\pm$0.31 \\
+Position--position & 24.5$\pm$0.8 & 26.6$\pm$1.0 & 0.21$\pm$0.12 & 30$\pm$2 & 0.41$\pm$0.24 \\
+Position--force & 24.7$\pm$0.8 & 25.5$\pm$2.4 & 0.23$\pm$0.13 & 30$\pm$2 & 0.23$\pm$0.64 \\
+Proposed w/o MPC & 24.7$\pm$0.8 & 26.0$\pm$1.0 & 0.21$\pm$0.12 & 20$\pm$0 & 0.30$\pm$0.75 \\
+\textbf{Proposed} & \textbf{6.7$\pm$0.8} & \textbf{15.7$\pm$5.1} & 0.30$\pm$0.20 & \textbf{0$\pm$0} & 0.48$\pm$0.34 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+\subsubsection{Tracking and Contact}
+Fig.~\ref{fig:benchmark} shows one run of the benchmark task. In free motion (top, $0$--$12$\,s), every controller whose slave receives the master position directly lags the master by about $30$\,ms, the delay of the servo position loop; the shoulder error then oscillates with the motion and reaches $40$\,mrad. The proposed controller predicts this response with (\ref{eq:loop}) and previews the master velocity, so its error stays within about $10$\,mrad. In contact ($12$--$24$\,s), the force felt at the master (bottom) follows the scaled wall force for the position--force and the proposed controllers, whereas the position--position controller renders contact only through a position error that is small and slow. The spikes at $12$\,s are caused by the step in the operator's intended trajectory between the two phases.
+
+Table~\ref{tab:sim_multiseed} summarizes five seeds. The proposed controller lowers the free-motion RMSE from about $25$ to $6.7$\,mrad in every seed, and the measured lag falls below the control period. Without the MPC, the proposed architecture tracks like the baselines, so the gain in tracking comes from the slave MPC, while the gain in force rendering comes from the force channel. Two results are less favourable: the maximum error over the whole task is larger for the proposed controller, because in contact the admittance (\ref{eq:admittance}) deliberately lets the slave yield, and the force correlation varies strongly between seeds for every controller, because the operator moves the arm while in contact; the force channel is therefore assessed separately below. The MPC took $0.9$\,ms per control step for five joints on average.
+
+The model (\ref{eq:loop}) with the disturbance estimate predicts the slave position $100$\,ms ahead with an RMS error of $7.5$\,mrad, against $58$\,mrad for holding the last position and $29$\,mrad for constant-velocity extrapolation (three seeds).
+
+\subsubsection{External-Torque Estimation}
+To isolate the estimator, the slave was teleoperated without feedback while masses of $0.2$ and $0.5$\,kg were attached to the gripper and a $4.5$\,N push was applied (Fig.~\ref{fig:estimation}). Both estimators follow the loads, with a residual error of about $0.3$\,N\,m caused by the mass mismatch and the unmodelled friction, and are equivalent at the nominal speed. When the same motion is executed two and three times faster, the false torque in free motion grows for both, but less for the observer (shoulder $1.08$ vs.\ $0.75$\,N\,m RMS at three times the speed), because the static residual neglects $M\ddot q$. The difference matters in closed loop: with the static residual, the proposed controller at $k_{of}=0.6$ excites itself, the free-motion contact estimate reaches $5.9$\,N\,m, and the slave presses the wall with $73$\,N; with the observer the same gain tracks with $12$\,mrad RMSE and a peak wall force of $12.6$\,N.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.94\columnwidth]{figures/fig_estimation.pdf}
+\caption{External joint torque on the slave shoulder and elbow while the slave moves: true value, static residual, and momentum observer (\ref{eq:observer}). Loads: $0.2$\,kg ($4$--$8$\,s), $0.5$\,kg ($12$--$16$\,s), and a $4.5$\,N push ($18$--$22$\,s).}
+\label{fig:estimation}
+\end{figure}
+
+\subsubsection{Force Reproduction}
+To evaluate the force path, the operator holds the master still while known forces act on the slave gripper: an $8$\,N push along $-x$, a $6$\,N downward load, and a $\pm4$\,N, $0.5$\,Hz oscillation along $x$ (Fig.~\ref{fig:mimicking}). Both force-reflecting controllers reproduce the timing and shape of every load. The correlation between the felt and the ideal force $k_{of}F_{env}$ is $0.94$ ($x$) and $0.98$ ($z$) for the proposed controller and $0.96$ and $0.98$ for position--force. The least-squares gain of the felt force relative to $k_{of}F_{env}$ is $1.02$ ($x$) and $1.60$ ($z$) for the proposed controller and $0.94$ and $1.40$ for position--force. The vertical over-rendering of the proposed controller has two sources that we quantified separately: the position channel adds force when the slave yields under a sustained load ($1.11$ with $k_{om}=0$), and reflecting joint torques one-to-one between arms of different reach over-renders by about $1.4\times$, which the Jacobian map (\ref{eq:feedback}) removes ($1.10$ for position--force with the Jacobian map). Balancing the force and position channels is the classical transparency trade-off \cite{lawrence1993}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.94\columnwidth]{figures/fig_mimicking.pdf}
+\caption{Force felt at the master while the master is held still and known forces act on the slave gripper, for the position--force and the proposed controllers, with the ideal scaled force $k_{of}F_{env}$ ($k_{of}=0.3$).}
+\label{fig:mimicking}
+\end{figure}
+
+When the slave holds a mass of $0$--$0.75$\,kg, the steady force felt at the master is linear in the weight (correlation $>0.999$), with slope $0.44$ for the proposed controller and $0.38$ for position--force (ideal $0.30$), and an offset of $0.2$\,N from the gravity-model error of the master. Over wall stiffnesses from $500$ to $10\,000$\,N/m, the ratio of felt to true contact force stays at $0.30$--$0.31$ (i.e.\ $k_{of}$) for the proposed controller, and the peak contact force grows only from $3.5$ to $4.9$\,N, against $5.7$ to $9.4$\,N for position--position, whose operator feels almost no contact force.
+
+\subsubsection{Stability under Force Gain and Delay}
+\label{sec:stability}
+Fig.~\ref{fig:stability} maps the maximum tracking error of the benchmark task over the force gain $k_{of}$ and a one-way communication delay, without and with the energy tank. The default $k_{of}=0.3$ remains stable up to $60$\,ms (maximum error $0.27$\,rad, which includes the delay of the slave itself). At $k_{of}=0.6$ the loop degrades from $20$\,ms, and gains of $1$ and above are not usable. Without delay, the tank reduces the maximum error at $k_{of}=1.0$ from $0.87$ to $0.50$\,rad and at $k_{of}=1.5$ from $1.99$ to $0.72$\,rad; under delay it does not help reliably, as expected from a tank that guards the master port only.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_stability.pdf}
+\caption{Maximum tracking error (rad) of the benchmark task over force gain $k_{of}$ and one-way delay, without and with the energy tank (simulation).}
+\label{fig:stability}
+\end{figure}
+
+\subsection{Scalability to Learning-Based Control Pipelines}
+
+The testbed can acquire synchronized trajectory data accompanied by force feedback, allowing for a natural and intuitive teleoperation experience in which operators feel resistance from the environment and compensate for forces. The testbed can be utilized as a data generation engine by collecting these synchronized, force-sensitive teleoperation trajectories, together with the commanded actions and the camera geometry, and feeding them into Imitation Learning (IL) or offline Reinforcement Learning (RL) training processes.
+
+\subsection{Controller Parameter Tuning and Performance Evaluation}
+To show systematic parameter optimization on the testbed, a second-order plant was simulated under successive PD configurations. The plant starts at position \(0\) with velocity \(0.1\), tracks a reference of \(1.0\) for \(10\)\,s (\(\Delta t = 0.01\)\,s), and saturates control at \(\pm 10\).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.7\linewidth]{images/Para.jpeg}
+\caption{System response, control effort, and tracking error during PD tuning. \textcolor{green}{Green}: initial configuration; \textcolor{blue}{Blue}: \(K_p\) optimized; \textcolor{yellow!60!brown}{Yellow}: \(K_p\) and \(K_d\) optimal.}
+\label{fig:parameter_tuning}
+\end{figure}
+
+Fig.~\ref{fig:parameter_tuning} shows the effect of adding proportional and then derivative feedback:
+\begin{itemize}
+    \item \textit{Initial} (\(K_p = 0\), \(K_d = 0\)): no feedback; motion follows the unactuated dynamics and the initial positive velocity.
+    \item \textit{Optimized P} (\(K_p > 0\), \(K_d = 0\)): effort is proportional to tracking error and drives the plant quickly toward the reference.
+    \item \textit{Optimized PD} (\(K_p > 0\), \(K_d > 0\)): derivative action damps rapid state changes.
+\end{itemize}
+
+Gains can also be tuned automatically within the ranges declared in the control script. For the PID law $u=K_pe+K_i\!\int\!e\,dt+K_d\dot e$ on a mass--spring--damper ($m=1$\,kg, $b=0.5$\,N\,s/m, $k=2$\,N/m, $|u|\le10$), declared with $K_p\in[0,50]$, $K_i\in[0,10]$, $K_d\in[0,20]$ and started from $K_p=8$, $K_i=0.5$, $K_d=0.4$, differential evolution \cite{storn1997de} on the integral of time-weighted absolute error (ITAE) reduced the ITAE from $7.60$ to $0.075$ and the overshoot of the step response from $36\%$ to $3.5\%$, with a settling time of $0.96$\,s ($K_p=45.6$, $K_i=6.09$, $K_d=9.03$). The tuned response is limited by the actuator, since the control saturates during the first $0.3$\,s.
+
+Gains can be swept over predefined ranges so engineers can inspect how \(K_p\) and \(K_d\) affect dynamics, flag instability or excessive effort, check actuator limits, and trade response speed against steady-state accuracy entirely in simulation. This shortens physical tuning, reduces hardware stress, and supports safer deployment.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion and Future Work}
+
+This paper presented MERLIN, a testbed that integrates multi-arm teleoperation, control development with MATLAB, and a camera-geometry-aware data pipeline for Interbotix X-Series arms, together with a sensorless bilateral controller for a current-controlled master and a position-controlled slave of different kinematics. Teleoperation trials on a bimanual setup demonstrated synchronized multimodal data acquisition without force-torque sensors. In a simulation study with models of the same arms, the controller tracked the master with $6.7$\,mrad RMSE in free motion, against about $25$\,mrad for unilateral, position--position, and position--force teleoperation, reproduced forces applied to the slave at the master with correlations of $0.94$--$0.98$, and remained stable at its default force gain for one-way delays up to $60$\,ms. The open design philosophy, which delegates algorithm and library selection to the user while providing a consistent data interface, ensures that MERLIN remains compatible with evolving RL methods, simulation engines, and robot hardware.
+
+\hspace{1em}Future work will focus on four directions. First, evaluating the bilateral controller on the hardware testbed, including calibration of the torque constants and identification of the servo position loops. Second, extending the passivity guarantee to delayed operation with a two-port energy tank, and integrating real-time collision detection into the safety layer. Third, incorporating touch-based haptic feedback and additional sensing to enable richer teleoperated data collection for contact-rich tasks. Fourth, extending the teleoperation input modalities to include exoskeleton-based interfaces for higher-fidelity human motion capture.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{IEEEtranS}
+\bibliography{IEEEfull,references,references_merlin}
+
+\end{document}

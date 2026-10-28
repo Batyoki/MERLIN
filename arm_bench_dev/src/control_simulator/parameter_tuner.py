@@ -10,6 +10,11 @@ import threading
 import time
 from dataclasses import dataclass
 
+try:
+    from .param_parser import parse_control_script
+except ImportError:
+    from param_parser import parse_control_script
+
 
 @dataclass
 class ParameterBounds:
@@ -18,6 +23,12 @@ class ParameterBounds:
     min_value: float
     max_value: float
     initial_value: float
+
+
+def bounds_from_script(control_law_text: str) -> List[ParameterBounds]:
+    """ParameterBounds for every '@param' declared in a control script (see param_parser.py)."""
+    parsed = parse_control_script(control_law_text)
+    return [ParameterBounds(p.name, p.min, p.max, p.default) for p in parsed.params]
 
 
 class ParameterTuner:

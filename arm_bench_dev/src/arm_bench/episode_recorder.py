@@ -102,6 +102,7 @@ class EpisodeRecorder:
         self._writer = None
         self._steps_file = None
         self._arms_seen: Dict[str, List[str]] = {}
+        self._actions_seen: Dict[str, int] = {}
         self._cams_seen = set()
         self.dropped_frames = 0
 
@@ -117,7 +118,7 @@ class EpisodeRecorder:
                                                              effort="mA (xs_sdk present current)"))
         self._steps_file = open(os.path.join(self.episode_dir, "steps.jsonl"), "w")
         self.step = self.frames_written = self.dropped_frames = 0
-        self._arms_seen, self._cams_seen = {}, set()
+        self._arms_seen, self._cams_seen, self._actions_seen = {}, set(), {}
         self._stop.clear()
         self._writer = threading.Thread(target=self._write_jpegs, daemon=True)
         self._writer.start()
@@ -142,6 +143,10 @@ class EpisodeRecorder:
             end_time=time.time(), duration_s=time.time() - self._t0, num_steps=self.step,
             frames_written=self.frames_written, dropped_frames=self.dropped_frames,
             arms={a: names for a, names in self._arms_seen.items()},
+            actions_recorded=sorted(self._actions_seen),
+            action_note=("action = last JointGroupCommand.cmd (rad) seen on <arm>/commands/joint_group within 0.5 s"
+                         if self._actions_seen else
+                         "no actions recorded (no */commands/joint_group topic seen or interbotix_xs_msgs missing)"),
             cameras=sorted(self._cams_seen), calibrated_cameras=calib,
             joint_state_source=("ros" if self._arms_seen else "none — no */joint_states received"),
         )
@@ -158,11 +163,15 @@ class EpisodeRecorder:
         next_t = time.time()
         while not self._stop.is_set():
             t = time.time()
-            rec = {"step": self.step, "t": t - self._t0, "arms": {}, "frames": {}}
+            rec = {"step": self.step, "t": t - self._t0, "arms": {}, "actions": {}, "frames": {}}
             if self.state_source is not None and getattr(self.state_source, "available", False):
                 for arm, st in self.state_source.latest(max_age=0.5).items():
                     rec["arms"][arm] = st.as_dict()
                     self._arms_seen.setdefault(arm, st.names)
+            if self.state_source is not None and hasattr(self.state_source, "commands"):
+                for arm, c in self.state_source.commands(max_age=0.5).items():
+                    rec["actions"][arm] = dict(cmd=c["cmd"], age_s=t - c["received"])
+                    self._actions_seen.setdefault(arm, len(c["cmd"]))
             if self.frame_source is not None:
                 for cam, (frame, t_cap) in self.frame_source().items():
                     fname = f"{_safe(cam)}_{self.step:06d}.jpg"
@@ -221,6 +230,17 @@ class EpisodeRecorder:
                     g.create_dataset(key, data=arr)
                 g.create_dataset("stamp", data=np.array(
                     [s["arms"].get(arm, {}).get("stamp", np.nan) for s in steps]))
+            for arm, n in self._actions_seen.items():
+                arr = np.full((len(steps), n), np.nan)
+                age = np.full(len(steps), np.nan)
+                for i, s in enumerate(steps):
+                    a = s.get("actions", {}).get(arm)
+                    if a:
+                        arr[i, :len(a["cmd"])] = a["cmd"][:n]
+                        age[i] = a["age_s"]
+                g = h5.require_group(f"arms/{arm}")
+                g.create_dataset("action", data=arr)
+                g.create_dataset("action_age_s", data=age)
             for cam in sorted(self._cams_seen):
                 g = h5.create_group(f"cameras/{_safe(cam)}")
                 g.create_dataset("frame_file", data=np.array(

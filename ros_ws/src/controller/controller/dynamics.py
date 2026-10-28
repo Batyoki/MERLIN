@@ -10,9 +10,8 @@ in controller vectors. Joints are mapped BY NAME, so the code is valid for
 any URDF that contains these joint names (with or without forearm_roll,
 with a continuous or revolute gripper joint).
 
-Replaces the old index-insertion logic in arm_interface.py
-(np.insert(q, 3, 0.0) / np.delete(G, 3)), which shifted wrist_angle onto
-wrist_rotate for the 5-DOF vx300s.urdf shipped in this package.
+Joints are matched by name, so a locked forearm_roll is handled without
+inserting or deleting vector entries by index.
 """
 
 import os

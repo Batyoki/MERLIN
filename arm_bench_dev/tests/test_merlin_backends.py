@@ -185,6 +185,35 @@ def test_episode_recorder_writes_real_streams(tmp_path, monkeypatch):
     assert os.path.isfile(os.path.join(path, "calibration", "Front.json"))
 
 
+class _StubStateWithActions(_StubState):
+    def commands(self, max_age=1.0):
+        return {"slaveR": dict(group="arm", cmd=[0.25, -0.5], received=time.time() - 0.01)}
+
+
+def test_episode_recorder_stores_commanded_actions(tmp_path):
+    h5py = pytest.importorskip("h5py")
+    from arm_bench.episode_recorder import EpisodeRecorder
+    rec = EpisodeRecorder(str(tmp_path), rate_hz=50, state_source=_StubStateWithActions(), frame_source=None)
+    rec.start("act")
+    time.sleep(0.3)
+    s = rec.stop()
+    assert s["actions_recorded"] == ["slaveR"] and "JointGroupCommand" in s["action_note"]
+    step = json.loads(open(os.path.join(s["episode_dir"], "steps.jsonl")).readline())
+    assert step["actions"]["slaveR"]["cmd"] == [0.25, -0.5]
+    with h5py.File(os.path.join(s["episode_dir"], "episode.h5")) as h5:
+        assert h5["arms/slaveR/action"][0].tolist() == [0.25, -0.5]
+        assert 0.0 <= h5["arms/slaveR/action_age_s"][0] < 0.1
+
+
+def test_recorder_without_command_source_says_so(tmp_path):
+    from arm_bench.episode_recorder import EpisodeRecorder
+    rec = EpisodeRecorder(str(tmp_path), rate_hz=50, state_source=_StubState(), frame_source=None)
+    rec.start("noact")
+    time.sleep(0.1)
+    s = rec.stop()
+    assert s["actions_recorded"] == [] and s["action_note"].startswith("no actions recorded")
+
+
 def test_recorder_does_not_invent_joint_data(tmp_path):
     from arm_bench.episode_recorder import EpisodeRecorder
     rec = EpisodeRecorder(str(tmp_path), rate_hz=50, state_source=None, frame_source=None)

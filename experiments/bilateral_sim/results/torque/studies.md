@@ -23,12 +23,12 @@ Free-motion false torque vs speed (shoulder / elbow, N·m RMS):
 |---|---|---|---|---|
 | Position-force, k_of=0.3, static | 0.024 | 0.15 | 3.4 | 0.47 |
 | Position-force, k_of=0.3, momentum | 0.024 | 0.16 | 3.4 | 0.44 |
-| Proposed, k_of=0.3, static | 0.016 | 0.11 | 4.1 | 0.55 |
-| Proposed, k_of=0.3, momentum | 0.016 | 0.12 | 3.8 | 0.44 |
+| Proposed, k_of=0.3, static | 0.012 | 0.12 | 4.2 | 0.50 |
+| Proposed, k_of=0.3, momentum | 0.011 | 0.12 | 4.3 | 0.45 |
 | Position-force, k_of=0.6, static | 0.238 | 0.98 | 110.5 | 11.30 |
 | Position-force, k_of=0.6, momentum | 0.100 | 0.73 | 99.3 | 0.47 |
-| Proposed, k_of=0.6, static | 0.110 | 0.60 | 63.2 | 5.58 |
-| Proposed, k_of=0.6, momentum | 0.016 | 0.14 | 11.8 | 0.46 |
+| Proposed, k_of=0.6, static | 0.110 | 0.40 | 73.4 | 5.87 |
+| Proposed, k_of=0.6, momentum | 0.012 | 0.15 | 12.6 | 0.46 |
 
 ## S2 Torque mimicking
 
@@ -36,8 +36,8 @@ Free-motion false torque vs speed (shoulder / elbow, N·m RMS):
 |---|---|---|---|---|---|---|
 | Original code | 3.41 | 0.53 | 0.25 | -0.12 | 1.13 | 0.221 |
 | Position-force (2ch) | 0.34 | 0.96 | 0.98 | 0.94 | 1.40 | 0.151 |
-| Proposed | 0.43 | 0.94 | 0.98 | 1.01 | 1.60 | 0.184 |
-| Proposed, k_of=0.6 | 0.59 | 0.96 | 0.97 | 0.90 | 1.30 | 0.395 |
+| Proposed | 0.43 | 0.94 | 0.98 | 1.02 | 1.60 | 0.189 |
+| Proposed, k_of=0.6 | 0.59 | 0.96 | 0.97 | 0.91 | 1.30 | 0.402 |
 
 gain = least-squares ratio felt / (k_of·F_env); 1.0 = exact scaled reproduction.
 
@@ -45,9 +45,9 @@ gain = least-squares ratio felt / (k_of·F_env); 1.0 = exact scaled reproduction
 
 | Case | gain x | gain z |
 |---|---|---|
-| Proposed | 1.01 | 1.60 |
-| Proposed, k_om=0 | 0.69 | 1.11 |
-| Proposed, identity map | 1.31 | 1.90 |
+| Proposed | 1.02 | 1.60 |
+| Proposed, k_om=0 | 0.70 | 1.11 |
+| Proposed, identity map | 1.33 | 1.89 |
 | Position-force, identity map | 0.94 | 1.40 |
 | Position-force, Jacobian map | 0.67 | 1.10 |
 
@@ -56,11 +56,11 @@ gain = least-squares ratio felt / (k_of·F_env); 1.0 = exact scaled reproduction
 | mass (kg) | m·g (N) | Original code | Position-force (2ch) | Proposed |
 |---|---|---|---|---|
 | 0.00 | 0.00 | 4.08 | 0.21 | 0.22 |
-| 0.10 | 0.98 | 4.08 | 0.53 | 0.57 |
-| 0.20 | 1.96 | 4.08 | 0.93 | 1.00 |
+| 0.10 | 0.98 | 4.08 | 0.53 | 0.56 |
+| 0.20 | 1.96 | 4.08 | 0.93 | 1.01 |
 | 0.30 | 2.94 | 4.08 | 1.31 | 1.46 |
-| 0.50 | 4.91 | 4.08 | 2.05 | 2.34 |
-| 0.75 | 7.36 | 4.08 | 3.00 | 3.48 |
+| 0.50 | 4.91 | 4.08 | 2.05 | 2.33 |
+| 0.75 | 7.36 | 4.08 | 3.00 | 3.43 |
 
 ## S4 Stiffness
 
@@ -76,11 +76,11 @@ gain = least-squares ratio felt / (k_of·F_env); 1.0 = exact scaled reproduction
 | Position-position | 2000 | 8.2 | 0.01 | 0.026 |
 | Position-position | 5000 | 9.0 | 0.01 | 0.027 |
 | Position-position | 10000 | 9.4 | 0.01 | 0.027 |
-| Proposed | 500 | 3.4 | 0.30 | 0.015 |
-| Proposed | 1000 | 3.6 | 0.31 | 0.015 |
-| Proposed | 2000 | 3.8 | 0.31 | 0.016 |
-| Proposed | 5000 | 4.6 | 0.32 | 0.016 |
-| Proposed | 10000 | 4.5 | 0.31 | 0.016 |
+| Proposed | 500 | 3.5 | 0.30 | 0.011 |
+| Proposed | 1000 | 4.0 | 0.31 | 0.011 |
+| Proposed | 2000 | 4.3 | 0.31 | 0.011 |
+| Proposed | 5000 | 4.7 | 0.31 | 0.012 |
+| Proposed | 10000 | 4.9 | 0.31 | 0.012 |
 
 ## S5 Stability (max tracking error, rad)
 
@@ -88,19 +88,19 @@ gain = least-squares ratio felt / (k_of·F_env); 1.0 = exact scaled reproduction
 
 | k_of \ delay | 0 ms | 20 ms | 40 ms | 60 ms |
 |---|---|---|---|---|
-| 0.1 | 0.10 | 0.20 | 0.26 | 0.26 |
-| 0.3 | 0.12 | 0.20 | 0.27 | 0.26 |
-| 0.6 | 0.15 | 0.59 | 1.47 | 1.68 |
-| 1.0 | 0.72 | 0.84 | 1.89 | 2.00 |
-| 1.5 | 1.29 | 1.23 | 2.02 | 2.30 |
+| 0.1 | 0.10 | 0.20 | 0.27 | 0.27 |
+| 0.3 | 0.12 | 0.21 | 0.27 | 0.27 |
+| 0.6 | 0.15 | 0.73 | 0.53 | 1.53 |
+| 1.0 | 0.87 | 0.82 | 2.24 | 2.62 |
+| 1.5 | 1.99 | 0.96 | 2.17 | 2.37 |
 
 **tank**
 
 | k_of \ delay | 0 ms | 20 ms | 40 ms | 60 ms |
 |---|---|---|---|---|
-| 0.1 | 0.10 | 0.20 | 0.26 | 0.26 |
-| 0.3 | 0.12 | 0.20 | 0.27 | 0.26 |
-| 0.6 | 0.14 | 0.59 | 1.40 | 1.63 |
-| 1.0 | 0.17 | 0.85 | 1.58 | 2.22 |
-| 1.5 | 0.45 | 1.11 | 1.55 | 2.54 |
+| 0.1 | 0.10 | 0.20 | 0.27 | 0.27 |
+| 0.3 | 0.12 | 0.21 | 0.27 | 0.27 |
+| 0.6 | 0.15 | 0.73 | 0.53 | 1.38 |
+| 1.0 | 0.50 | 0.88 | 1.63 | 1.94 |
+| 1.5 | 0.72 | 0.94 | 1.45 | 2.25 |
 

@@ -1,7 +1,7 @@
 """
 admittance.py
 -------------
-Slave admittance filter (paper Eq. 5), per joint:
+Slave admittance filter, per joint:
 
     M_d q̈_e + D_d q̇_e + K_d q_e = τ_adm
 
@@ -11,10 +11,9 @@ discretised EXACTLY with a zero-order hold on τ_adm:
     A_d = e^{A Δt},   B_d = ∫_0^Δt e^{A s} ds B
 
 The exact discretisation is stable for every Δt whenever M_d, D_d, K_d > 0.
-The previous explicit-Euler update used the robot's real inertia matrix as
-M_d (wrist entries ≈ 1e-4..1e-6 kg·m²); with K_d = 5..10 N·m/rad that gives
-ω_n Δt ≈ 2..4.5 at Δt = 20 ms, i.e. outside Euler's stability region, which
-is why the wrist chattered against the ±0.05 rad clamp.
+Explicit Euler is not: with the link inertia as M_d (wrist ≈ 1e-4..1e-6 kg·m²)
+and K_d = 5..10 N·m/rad, ω_n Δt ≈ 2..4.5 at Δt = 20 ms lies outside its
+stability region.
 
 M_d, D_d, K_d are DESIGN parameters (the desired contact behaviour), not the
 physical inertia. Choose the bandwidth below the slave position loop:

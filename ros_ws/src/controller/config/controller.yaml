@@ -66,6 +66,10 @@ controller:
     mpc_Q: 100.0
     mpc_P: 300.0
     mpc_R: 0.5
+    # ADMM solver of the position MPC. rho = 0.3 converges to the exact QP in <= 60 iterations
+    # (rho = 10 did not: docs/CODE_FIXES.md B7).
+    mpc_rho: 0.3
+    mpc_iters: 60
 
     # --- energy tank (passivity) -------------------------------------------
     use_tank: true

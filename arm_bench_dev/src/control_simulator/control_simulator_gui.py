@@ -24,13 +24,14 @@ from PyQt5.QtWidgets import (
     QGridLayout, QTabWidget, QTableWidget, QTableWidgetItem, QMessageBox,
     QFileDialog, QProgressBar, QDoubleSpinBox, QCheckBox, QSplitter
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 
 # Import our modules
 sys.path.insert(0, os.path.dirname(__file__))
 from control_simulator.matlab_engine_interface import MATLABControlSimulator, extract_parameter_names
 from control_simulator.parameter_tuner import ParameterTuner, ParameterBounds
+from control_simulator.param_parser import parse_control_script, ParamError
 
 
 class SimulationWorker(QThread):
@@ -107,9 +108,16 @@ class TuningWorker(QThread):
 
 class ControlSimulatorGUI(QMainWindow):
     """Main GUI for control simulator"""
-    
+
+    # The engine starts in a plain Python thread. A QTimer created in such a thread never fires
+    # (the thread has no Qt event loop), so results are sent to the GUI thread with signals.
+    engine_started = pyqtSignal(bool)
+    log_requested = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
+        self.engine_started.connect(self.on_matlab_engine_started)
+        self.log_requested.connect(self.log)
         self.setWindowTitle("MERLIN - Control Algorithm Tuning")
         self.setGeometry(100, 100, 1400, 900)
         
@@ -180,13 +188,21 @@ class ControlSimulatorGUI(QMainWindow):
         # Control law input
         law_group = QGroupBox("Free-Text Control Law")
         law_layout = QVBoxLayout()
-        law_label = QLabel("Enter a control law that assigns to u. Parameters are auto-detected from the text.")
+        law_label = QLabel("Enter a control law that assigns to u. Declare parameters with a line like "
+                           "'% @param min=0 max=50 desc=\"gain\"' above 'Kp = 8;' (see examples/); "
+                           "without @param every free name is treated as a parameter.")
         law_label.setWordWrap(True)
         law_layout.addWidget(law_label)
         self.control_law_edit = QTextEdit()
         self.control_law_edit.setPlaceholderText("Example: u = Kp*e + Ki*integral + Kd*derivative;")
         self.control_law_edit.textChanged.connect(self.on_control_law_changed)
         law_layout.addWidget(self.control_law_edit)
+        self.param_status_label = QLabel("")
+        self.param_status_label.setWordWrap(True)
+        law_layout.addWidget(self.param_status_label)
+        load_btn = QPushButton("Load script...")
+        load_btn.clicked.connect(self.load_script)
+        law_layout.addWidget(load_btn)
         law_group.setLayout(law_layout)
         layout.addWidget(law_group)
         
@@ -348,8 +364,10 @@ class ControlSimulatorGUI(QMainWindow):
 
         while self.param_layout.count():
             child = self.param_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            widget = child.widget()
+            if widget:
+                widget.setParent(None)      # hide now; deleteLater alone leaves it drawn until the loop runs
+                widget.deleteLater()
 
         self.param_inputs = {}
         self.param_bounds_inputs = {}
@@ -365,11 +383,32 @@ class ControlSimulatorGUI(QMainWindow):
         }
 
         law_text = self.control_law_edit.toPlainText() if hasattr(self, 'control_law_edit') else ''
-        parsed_params = extract_parameter_names(law_text)
-        if parsed_params:
-            params = [(name, 1.0, 0.0, 100.0) for name in parsed_params]
+        declared = {}
+        status = ""
+        try:
+            parsed = parse_control_script(law_text)
+        except ParamError as exc:
+            parsed = None
+            status = f"@param error: {exc}"
+        if parsed is not None and parsed.annotated:
+            # '@param' declarations: default/min/max come from the script, existing edits are kept
+            params = [(p.name, p.default, p.min, p.max) for p in parsed.params]
+            declared = {p.name: p for p in parsed.params}
+            status = f"{len(params)} parameter(s) read from @param" + "".join(f"\nwarning: {w}" for w in parsed.warnings)
+            # keep a value the user typed into a spin box, but not across a changed script default
+            last = getattr(self, '_last_declared_defaults', {})
+            existing_values = {n: v for n, v in existing_values.items()
+                               if n in declared and last.get(n) == declared[n].default}
+            existing_bounds = {}
+            self._last_declared_defaults = {n: p.default for n, p in declared.items()}
         else:
-            params = default_params.get(algorithm, [])
+            parsed_params = extract_parameter_names(law_text) if parsed is not None else []
+            if parsed_params:
+                params = [(name, 1.0, 0.0, 100.0) for name in parsed_params]
+            else:
+                params = default_params.get(algorithm, [])
+        if hasattr(self, 'param_status_label'):
+            self.param_status_label.setText(status)
 
         for i, (name, default, min_val, max_val) in enumerate(params):
             current_value = existing_values.get(name, default)
@@ -383,58 +422,71 @@ class ControlSimulatorGUI(QMainWindow):
             self.param_layout.addWidget(QLabel(f"{name}:"), i, 0)
 
             spin = QDoubleSpinBox()
-            spin.setRange(min_val, max_val)
+            spin.setRange(min(min_val, 0.0) if name not in declared else min_val,
+                          max(max_val, 100.0) if name not in declared else max_val)
             spin.setValue(current_value)
+            if name in declared:
+                spec = declared[name]
+                spin.setToolTip(f"{spec.desc} [{spec.unit}]".strip() if spec.desc or spec.unit else name)
+                if spec.step:
+                    spin.setSingleStep(spec.step)
             spin.setDecimals(4)
             self.param_layout.addWidget(spin, i, 1)
             self.param_inputs[name] = spin
 
             self.param_layout.addWidget(QLabel("Min:"), i, 2)
             min_spin = QDoubleSpinBox()
-            min_spin.setRange(0.0, 1000.0)
+            min_spin.setRange(-1e6, 1e6)
             min_spin.setValue(current_min.value() if hasattr(current_min, 'value') else current_min)
             min_spin.setDecimals(4)
             self.param_layout.addWidget(min_spin, i, 3)
 
             self.param_layout.addWidget(QLabel("Max:"), i, 4)
             max_spin = QDoubleSpinBox()
-            max_spin.setRange(0.0, 1000.0)
+            max_spin.setRange(-1e6, 1e6)
             max_spin.setValue(current_max.value() if hasattr(current_max, 'value') else current_max)
             max_spin.setDecimals(4)
             self.param_layout.addWidget(max_spin, i, 5)
 
             self.param_bounds_inputs[name] = (min_spin, max_spin)
     
+    def load_script(self):
+        """Load a control script (with optional @param header) into the control-law box."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Load control script", "", "Control scripts (*.m *.txt);;All files (*)"
+        )
+        if filename:
+            with open(filename, 'r') as f:
+                self.control_law_edit.setPlainText(f.read())
+            self.log(f"Loaded control script {filename}")
+
     def start_matlab_engine(self):
-        """Start MATLAB engine in background."""
+        """Start MATLAB engine (or the GNU Octave fallback) in the background."""
         def start_engine():
             success = False
             try:
-                QTimer.singleShot(0, lambda: self.log("Starting MATLAB engine..."))
+                self.log_requested.emit("Starting MATLAB engine...")
                 self.simulator = MATLABControlSimulator()
                 success = self.simulator.start_engine()
             except Exception as e:
-                msg = f"MATLAB engine thread error: {e}"   # `e` is cleared after the except block
-                QTimer.singleShot(0, lambda: self.log(msg))
+                self.log_requested.emit(f"MATLAB engine thread error: {e}")
             finally:
-                QTimer.singleShot(0, lambda: self.on_matlab_engine_started(success))
+                self.engine_started.emit(success)
 
         thread = threading.Thread(target=start_engine, daemon=True)
         thread.start()
 
     def on_matlab_engine_started(self, success: bool):
-        """Handle MATLAB engine startup result on the Qt main thread."""
-        def update_ui():
-            if success:
-                self.tuner = ParameterTuner(self.simulator)
-                self.log("MATLAB engine started successfully")
-                self.statusBar().showMessage("MATLAB engine ready")
-            else:
-                self.log("ERROR: Failed to start MATLAB engine")
-                self.statusBar().showMessage("MATLAB engine failed")
+        """Handle the engine startup result (runs on the Qt main thread)."""
+        if success:
+            self.tuner = ParameterTuner(self.simulator)
+            backend = getattr(self.simulator, "backend", None) or "MATLAB"
+            self.log(f"{backend} engine started successfully")
+            self.statusBar().showMessage(f"{backend} engine ready")
+        else:
+            self.log("ERROR: Failed to start MATLAB engine (and no GNU Octave fallback)")
+            self.statusBar().showMessage("MATLAB engine failed")
 
-        QTimer.singleShot(0, update_ui)
-    
     def run_simulation(self):
         """Run control simulation"""
         if self.simulator is None or not self.simulator.is_engine_running():

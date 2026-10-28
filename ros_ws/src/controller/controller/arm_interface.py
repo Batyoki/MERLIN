@@ -11,7 +11,7 @@ Teleoperation pair used in the paper:
 All controller vectors are 5-long, in ARM_JOINTS order:
   [waist, shoulder, elbow, wrist_angle, wrist_rotate]
 
-Sign convention (used everywhere, paper Eq. 2):
+Sign convention (used everywhere):
   M(q) q̈ + C(q, q̇) q̇ + G(q) = τ_motor + τ_ext
   =>  τ̂_ext = G(q) + C(q, q̇) q̇ − τ_motor            (M q̈ neglected)
   τ̂_ext is the torque the ENVIRONMENT applies on the joint.
@@ -134,7 +134,7 @@ class ArmInterface:
         stamp   : message time [s] — used for the finite difference
         dq_meas : JointState.velocity if the driver publishes it (preferred)
         """
-        # Velocity — paper Eq. 1, with the real sample time
+        # Velocity: backward difference with the real sample time
         if dq_meas is not None:
             dq_raw = dq_meas
         elif self._q_prev is None:
@@ -145,7 +145,7 @@ class ArmInterface:
         self._q_prev, self._t_prev = q.copy(), stamp
         self._dq_filt = self.alpha * dq_raw + (1 - self.alpha) * self._dq_filt
 
-        # Torque from current — paper Eq. 1
+        # Torque from current: n_motors * k_t * I
         current_A = effort * self.current_unit_scale
         tau_raw = self.n_motors * self.kt * current_A
         self._tau_filt = self.alpha * tau_raw + (1 - self.alpha) * self._tau_filt
@@ -158,7 +158,7 @@ class ArmInterface:
             # in the force loop and caused a master–slave limit cycle in simulation.
             tau_ext = self.observer.update(q, dq_raw, tau_raw)
         elif self.estimator == "static":
-            # paper Eq. 2, M q̈ neglected — only valid when the arm is (nearly) static
+            # static residual, M q̈ neglected: only valid when the arm is (nearly) static
             tau_ext = (self.model.gravity(q)
                        + self.model.coriolis(q, self._dq_filt)
                        - self._tau_filt)

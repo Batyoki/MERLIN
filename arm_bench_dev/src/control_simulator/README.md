@@ -19,6 +19,19 @@ A comprehensive control system simulation and parameter tuning tool with MATLAB 
 - **Comparison Tools**: Side-by-side comparison of different parameter sets
 - **Multithreaded Operation**: Non-blocking UI during simulations and tuning
 
+### Parameters from the script (`@param`)
+A control law can declare its tunable parameters, bounds and descriptions itself; the GUI, the tuner and the MATLAB engine read
+that declaration:
+
+```matlab
+% @param min=0 max=50 desc="proportional gain"
+Kp = 8.0;
+u = Kp*e + Ki*integral + Kd*derivative;
+```
+
+See `examples/` for scripts, `param_parser.py` for the rules (also in `docs/CONTROL_SIMULATOR_WALKTHROUGH.md` at the repository
+root, which has a complete worked session) and `python_sim.py` for a MATLAB-free dry run used by the tests.
+
 ### 📊 Included Control Algorithms
 
 #### 1. **PID Controller** (`pid_controller.m`)

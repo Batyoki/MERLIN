@@ -65,6 +65,42 @@ def human_intent(t: float) -> np.ndarray:
     return Q0 + np.array([0.0, 0.45, -0.1, 0.0, 0.0]) * push
 
 
+def make_intent(seed: int):
+    """
+    Randomised operator for multi-seed studies: the same two-phase task as
+    human_intent() (free motion, then two pushes towards the wall) with +-25 %
+    amplitude, +-15 % frequency and a random phase per joint.
+    seed = 0 reproduces human_intent() exactly.
+    """
+    if seed == 0:
+        return human_intent
+    rng = np.random.default_rng(1000 + seed)
+    A = np.array([0.6, 0.25, 0.3, 0.4, 0.6]) * rng.uniform(0.75, 1.25, 5)
+    f = np.array([0.25, 0.3, 0.35, 0.4, 0.5]) * rng.uniform(0.85, 1.15, 5)
+    phi = rng.uniform(0, 2 * np.pi, 5)
+    push_amp = 0.45 * rng.uniform(0.8, 1.2)
+    push_f = 0.125 * rng.uniform(0.85, 1.15)
+
+    def intent(t):
+        if t < T_FREE:
+            ramp = min(t / 1.0, 1.0)
+            return Q0 + ramp * A * (np.sin(2 * np.pi * f * t + phi) - np.sin(phi))
+        push = 0.5 * (1 - np.cos(2 * np.pi * push_f * (t - T_FREE)))
+        return Q0 + np.array([0.0, push_amp, -0.1, 0.0, 0.0]) * push
+    return intent
+
+
+def software_versions() -> dict:
+    """Versions of everything the numbers depend on (stored next to every result)."""
+    import platform
+    import mujoco
+    import pinocchio
+    import scipy
+    out = dict(python=platform.python_version(), numpy=np.__version__, scipy=scipy.__version__,
+               mujoco=mujoco.__version__, pinocchio=pinocchio.__version__, platform=platform.platform())
+    return out
+
+
 def quantize(x, step):
     return np.round(x / step) * step
 
@@ -159,7 +195,7 @@ def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, es
 
     log = {k: [] for k in ("t", "q_m", "q_s", "q_ref", "f_env", "f_felt", "contact",
                            "tank", "mpc_ms", "tau_cmd", "q_s_meas", "I_s", "tau_ext_true",
-                           "tau_hat_s", "tau_felt", "f_env3", "f_felt3", "gamma")}
+                           "tau_hat_s", "tau_felt", "f_env3", "f_felt3", "gamma", "u")}
     n_ctrl = int(T / DT_CTRL)
     unstable = False
     for k in range(n_ctrl):
@@ -229,11 +265,14 @@ def run(name, controller_kind, params=None, delay_steps=0, seed=0, T=T_TOTAL, es
         log["f_env3"].append(f_env)
         log["f_felt3"].append(f_felt)
         log["gamma"].append(diag.get("gamma", np.nan))
+        log["u"].append(np.asarray(q_cmd, float).copy())
 
     L = {k: np.array(v) for k, v in log.items()}
     res = dict(name=name, unstable=unstable)
     if len(L["t"]) > 10:
-        res["tracking_all"] = tracking_metrics(L["t"], L["q_m"], L["q_s"], ARM)["overall"]
+        tm = tracking_metrics(L["t"], L["q_m"], L["q_s"], ARM)
+        res["tracking_all"] = tm["overall"]
+        res["tracking_joints"] = tm["joints"]
         free = L["t"] < T_FREE
         res["tracking_free"] = tracking_metrics(L["t"][free], L["q_m"][free], L["q_s"][free], ARM)
         res["force"] = force_metrics(-L["f_env"], L["f_felt"], L["contact"])
@@ -291,7 +330,8 @@ def main():
         logs[name] = L
 
     with open(os.path.join(args.out, "results.json"), "w") as f:
-        json.dump(dict(identified=dict(omega=omega.tolist(), zeta=zeta.tolist()),
+        json.dump(dict(software=software_versions(),
+                       identified=dict(omega=omega.tolist(), zeta=zeta.tolist()),
                        results=results), f, indent=2)
     write_markdown(results, omega, zeta, os.path.join(args.out, "results.md"))
     if not args.no_plots:
