@@ -62,7 +62,7 @@ def _reference(time: np.ndarray, kind: str, amp: float) -> np.ndarray:
     if kind == "sine":
         return amp * np.sin(2 * np.pi * 0.5 * time)
     if kind == "square":
-        return amp * np.sign(np.sin(2 * np.pi * 0.2 * time) + 1e-12)
+        return amp * (2.0 * (np.sin(2 * np.pi * 0.2 * time) >= 0) - 1.0)
     return amp * np.ones_like(time)
 
 

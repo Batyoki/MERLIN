@@ -112,7 +112,7 @@ function ref = generate_reference(time, signal_type, amplitude)
             
         case 'square'
             freq = 0.2;  % Hz
-            ref = amplitude * square(2 * pi * freq * time);
+            ref = amplitude * (2 * (sin(2 * pi * freq * time) >= 0) - 1);   % square wave without the Signal Processing Toolbox
             
         otherwise
             ref = amplitude * ones(size(time));

@@ -45,6 +45,30 @@ def extract_parameter_names(law_text: str) -> List[str]:
     return params
 
 
+class OctaveEngine:
+    """Runs the same .m scripts in GNU Octave through oct2py.
+
+    Used when the MATLAB Engine API is not installed. It exposes the two engine calls the simulator
+    needs (addpath, run_control_sim) with MATLAB-engine-style keyword arguments.
+    """
+
+    name = "GNU Octave"
+
+    def __init__(self, script_path: str):
+        from oct2py import Oct2Py          # pip install oct2py; needs octave-cli on PATH
+        self._oc = Oct2Py()
+        self._oc.addpath(script_path)
+
+    def addpath(self, path, nargout=0):
+        self._oc.addpath(path)
+
+    def run_control_sim(self, *args, nargout=1):
+        return self._oc.feval("run_control_sim", *args, nout=nargout)
+
+    def quit(self):
+        self._oc.exit()
+
+
 class MATLABControlSimulator:
     """
     Interface to MATLAB for running control simulations.
@@ -59,6 +83,7 @@ class MATLABControlSimulator:
             matlab_script_path: Path to MATLAB scripts directory
         """
         self.engine = None
+        self.backend = None                       # "MATLAB" or "GNU Octave" once started
         self.engine_lock = threading.Lock()
         self.is_running = False
         
@@ -73,13 +98,28 @@ class MATLABControlSimulator:
         # Results storage
         self.last_results = None
         
-    def start_engine(self) -> bool:
+    def start_engine(self, allow_octave: bool = True) -> bool:
         """
-        Start MATLAB engine (can take several seconds)
-        
+        Start the MATLAB engine (can take several seconds). If the MATLAB Engine API is not
+        installed and ``allow_octave`` is True, run the same .m scripts in GNU Octave instead.
+
         Returns:
             bool: True if successful, False otherwise
         """
+        if self._start_matlab():
+            self.backend = "MATLAB"
+            return True
+        if allow_octave:
+            try:
+                self.engine = OctaveEngine(self.matlab_script_path)
+                self.backend = OctaveEngine.name
+                print("MATLAB not available: running the .m scripts in GNU Octave")
+                return True
+            except Exception as e:
+                print(f"GNU Octave fallback unavailable ({e}). Install octave-cli and 'pip install oct2py'.")
+        return False
+
+    def _start_matlab(self) -> bool:
         global matlab
 
         if matlab is None:
@@ -200,10 +240,9 @@ class MATLABControlSimulator:
                         control_law_text = 'u = 0;'
 
                 # Prepare initial state
-                if initial_state is None:
-                    matlab_initial_state = matlab.double([])
-                else:
-                    matlab_initial_state = matlab.double(initial_state)
+                to_array = (lambda v: np.array(v, dtype=float)) if isinstance(self.engine, OctaveEngine) \
+                    else matlab.double
+                matlab_initial_state = to_array([] if initial_state is None else list(initial_state))
                 
                 # Call MATLAB simulation function
                 print(f"Running {algorithm_name} simulation...")
@@ -239,10 +278,11 @@ class MATLABControlSimulator:
     
     def _python_to_matlab(self, data: Dict[str, float]) -> Tuple[List[str], Any]:
         """Convert Python dictionary to MATLAB parameter names and values."""
+        param_names = list(data.keys())
+        if isinstance(self.engine, OctaveEngine):
+            return param_names, np.array(list(data.values()), dtype=float)
         if matlab is None:
             raise RuntimeError("MATLAB package is not available for parameter conversion.")
-
-        param_names = list(data.keys())
         return param_names, matlab.double(list(data.values()))
     
     def _matlab_to_python(self, matlab_result: Dict) -> Dict[str, Any]:

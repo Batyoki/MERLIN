@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import (
     QGridLayout, QTabWidget, QTableWidget, QTableWidgetItem, QMessageBox,
     QFileDialog, QProgressBar, QDoubleSpinBox, QCheckBox, QSplitter
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 
 # Import our modules
@@ -108,9 +108,16 @@ class TuningWorker(QThread):
 
 class ControlSimulatorGUI(QMainWindow):
     """Main GUI for control simulator"""
-    
+
+    # The engine starts in a plain Python thread. A QTimer created in such a thread never fires
+    # (the thread has no Qt event loop), so results are sent to the GUI thread with signals.
+    engine_started = pyqtSignal(bool)
+    log_requested = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
+        self.engine_started.connect(self.on_matlab_engine_started)
+        self.log_requested.connect(self.log)
         self.setWindowTitle("MERLIN - Control Algorithm Tuning")
         self.setGeometry(100, 100, 1400, 900)
         
@@ -357,8 +364,10 @@ class ControlSimulatorGUI(QMainWindow):
 
         while self.param_layout.count():
             child = self.param_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            widget = child.widget()
+            if widget:
+                widget.setParent(None)      # hide now; deleteLater alone leaves it drawn until the loop runs
+                widget.deleteLater()
 
         self.param_inputs = {}
         self.param_bounds_inputs = {}
@@ -452,35 +461,32 @@ class ControlSimulatorGUI(QMainWindow):
             self.log(f"Loaded control script {filename}")
 
     def start_matlab_engine(self):
-        """Start MATLAB engine in background."""
+        """Start MATLAB engine (or the GNU Octave fallback) in the background."""
         def start_engine():
             success = False
             try:
-                QTimer.singleShot(0, lambda: self.log("Starting MATLAB engine..."))
+                self.log_requested.emit("Starting MATLAB engine...")
                 self.simulator = MATLABControlSimulator()
                 success = self.simulator.start_engine()
             except Exception as e:
-                msg = f"MATLAB engine thread error: {e}"   # `e` is cleared after the except block
-                QTimer.singleShot(0, lambda: self.log(msg))
+                self.log_requested.emit(f"MATLAB engine thread error: {e}")
             finally:
-                QTimer.singleShot(0, lambda: self.on_matlab_engine_started(success))
+                self.engine_started.emit(success)
 
         thread = threading.Thread(target=start_engine, daemon=True)
         thread.start()
 
     def on_matlab_engine_started(self, success: bool):
-        """Handle MATLAB engine startup result on the Qt main thread."""
-        def update_ui():
-            if success:
-                self.tuner = ParameterTuner(self.simulator)
-                self.log("MATLAB engine started successfully")
-                self.statusBar().showMessage("MATLAB engine ready")
-            else:
-                self.log("ERROR: Failed to start MATLAB engine")
-                self.statusBar().showMessage("MATLAB engine failed")
+        """Handle the engine startup result (runs on the Qt main thread)."""
+        if success:
+            self.tuner = ParameterTuner(self.simulator)
+            backend = getattr(self.simulator, "backend", None) or "MATLAB"
+            self.log(f"{backend} engine started successfully")
+            self.statusBar().showMessage(f"{backend} engine ready")
+        else:
+            self.log("ERROR: Failed to start MATLAB engine (and no GNU Octave fallback)")
+            self.statusBar().showMessage("MATLAB engine failed")
 
-        QTimer.singleShot(0, update_ui)
-    
     def run_simulation(self):
         """Run control simulation"""
         if self.simulator is None or not self.simulator.is_engine_running():
